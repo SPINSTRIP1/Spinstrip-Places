@@ -24,7 +24,6 @@ export const metadata: Metadata = {
   },
   description:
     'Explore vibrant places, unforgettable events and the menus people love — listed by the small businesses around you, all in one platform.',
-  icons: { icon: '/logo.png' },
 }
 
 export const viewport: Viewport = {

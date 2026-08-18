@@ -6,7 +6,7 @@ import MenuItemCard from '@/components/restaurant/MenuItemCard'
 import RestaurantLogo from '@/components/restaurant/RestaurantLogo'
 import { discounted, formatNaira, type MenuItem, type Restaurant } from '@/data/restaurants'
 import { ArrowLeft, BadgePercent, MapPin, Search, SearchX, ShoppingBag, Star } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 
@@ -19,22 +19,34 @@ export default function RestaurantPage({ restaurant }: Props) {
   const [category, setCategory] = useState('All')
   const [openItem, setOpenItem] = useState<MenuItem | null>(null)
   const [cartOpen, setCartOpen] = useState(false)
-  const [lines, setLines] = useState<CartLine[]>(() => {
+  const [lines, setLines] = useState<CartLine[]>([])
+  const [toast, setToast] = useState('')
+  const restored = useRef(false)
+
+  // The page is server-rendered, so the saved cart can only be read once we are
+  // on the client — reading it during render would break hydration.
+  useEffect(() => {
+    let saved: CartLine[] = []
     try {
       const raw = localStorage.getItem(`cart:${restaurant.id}`)
-      if (!raw) return []
-      const parsed: { id: string; qty: number }[] = JSON.parse(raw)
-      return parsed
-        .map((p) => {
-          const item = restaurant.items.find((i) => i.id === p.id)
-          return item ? { item, qty: p.qty } : null
-        })
-        .filter(Boolean) as CartLine[]
-    } catch { return [] }
-  })
-  const [toast, setToast] = useState('')
+      if (raw) {
+        const parsed: { id: string; qty: number }[] = JSON.parse(raw)
+        saved = parsed
+          .map((p) => {
+            const item = restaurant.items.find((i) => i.id === p.id)
+            return item ? { item, qty: p.qty } : null
+          })
+          .filter(Boolean) as CartLine[]
+      }
+    } catch { /* ignore */ }
+    restored.current = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring persisted cart on mount
+    setLines(saved)
+  }, [restaurant])
 
   useEffect(() => {
+    // Don't clobber the stored cart with the empty initial state.
+    if (!restored.current) return
     try {
       localStorage.setItem(
         `cart:${restaurant.id}`,
