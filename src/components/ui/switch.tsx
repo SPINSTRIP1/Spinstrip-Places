@@ -1,71 +1,31 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import * as SwitchPrimitives from "@radix-ui/react-switch";
+import * as React from "react"
+import * as SwitchPrimitive from "@radix-ui/react-switch"
 
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils"
 
-interface SwitchProps
-  extends React.ComponentPropsWithoutRef<typeof SwitchPrimitives.Root> {
-  showLabel?: boolean;
-}
-
-const Switch = React.forwardRef<
-  React.ElementRef<typeof SwitchPrimitives.Root>,
-  SwitchProps
->(({ className, checked, showLabel = true, ...props }, ref) => {
-  if (showLabel)
-    return (
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className={cn(
-          "flex items-center gap-x-2 w-fit px-2 py-1 rounded-full border",
-          checked
-            ? "bg-primary border-primary text-[#EBE2FF]"
-            : "bg-transparent text-secondary-text border-neutral-accent"
-        )}
-      >
-        {showLabel && (
-          <p className="text-sm">{checked ? "Active" : "Activate"}</p>
-        )}
-        <SwitchPrimitives.Root
-          className={cn(
-            "peer inline-flex h-3.5 w-6 shrink-0 cursor-pointer items-center rounded-full border-[1.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
-            className,
-            checked ? "border-[#EBE2FF]" : "border-[#6F6D6D]"
-          )}
-          {...props}
-          ref={ref}
-        >
-          <SwitchPrimitives.Thumb
-            className={cn(
-              "pointer-events-none block h-2 w-2 rounded-full  border-[1.5px] transition-transform",
-              checked
-                ? "border-[#EBE2FF] translate-x-3"
-                : "border-[#6F6D6D] translate-x-0.5"
-            )}
-          />
-        </SwitchPrimitives.Root>
-      </div>
-    );
+function Switch({
+  className,
+  ...props
+}: React.ComponentProps<typeof SwitchPrimitive.Root>) {
   return (
-    <SwitchPrimitives.Root
+    <SwitchPrimitive.Root
+      data-slot="switch"
       className={cn(
-        "peer inline-flex h-3.5 w-6 shrink-0 cursor-pointer border-[#6F6D6D] items-center rounded-full border-[1.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
+        "peer data-[state=checked]:bg-primary data-[state=unchecked]:bg-input focus-visible:border-ring focus-visible:ring-ring/50 dark:data-[state=unchecked]:bg-input/80 inline-flex h-[1.15rem] w-8 shrink-0 items-center rounded-full border border-transparent shadow-xs transition-all outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       {...props}
-      ref={ref}
     >
-      <SwitchPrimitives.Thumb
+      <SwitchPrimitive.Thumb
+        data-slot="switch-thumb"
         className={cn(
-          "pointer-events-none block h-2 w-2 rounded-full border-[#6F6D6D] border-[1.5px] transition-transform",
-          checked ? "translate-x-3" : "translate-x-0.5"
+          "bg-background dark:data-[state=unchecked]:bg-foreground dark:data-[state=checked]:bg-primary-foreground pointer-events-none block size-4 rounded-full ring-0 transition-transform data-[state=checked]:translate-x-[calc(100%-2px)] data-[state=unchecked]:translate-x-0"
         )}
       />
-    </SwitchPrimitives.Root>
-  );
-});
-Switch.displayName = SwitchPrimitives.Root.displayName;
+    </SwitchPrimitive.Root>
+  )
+}
 
-export { Switch };
+export { Switch }
