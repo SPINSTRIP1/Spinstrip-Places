@@ -1,4 +1,7 @@
+'use client'
+
 import { useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import AuroraBackground from '@/components/AuroraBackground'
 import BottomNav from '@/components/BottomNav'
 import CategoryChips, { type SortKey } from '@/components/CategoryChips'
@@ -11,11 +14,8 @@ import { CATEGORIES, LISTINGS, SECTIONS, type Listing, type SectionKey } from '@
 import { RESTAURANTS } from '@/data/restaurants'
 import { SearchX } from 'lucide-react'
 
-interface Props {
-  onOpenRestaurant: (id: string) => void
-}
-
-export default function Home({ onOpenRestaurant }: Props) {
+export default function HomeView() {
+  const router = useRouter()
   const [section, setSection] = useState<SectionKey>('places')
   const [category, setCategory] = useState('All')
   const [query, setQuery] = useState('')
@@ -50,7 +50,7 @@ export default function Home({ onOpenRestaurant }: Props) {
   const handleOpen = (listing: Listing) => {
     if (section !== 'menu') return
     const restaurant = RESTAURANTS.find((r) => r.listingId === listing.id)
-    if (restaurant) onOpenRestaurant(restaurant.id)
+    if (restaurant) router.push(`/restaurants/${restaurant.id}`)
   }
 
   return (

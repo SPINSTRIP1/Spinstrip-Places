@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { ArrowUpRight } from 'lucide-react'
 
 export default function Footer() {
@@ -6,7 +7,7 @@ export default function Footer() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="flex flex-col items-start justify-between gap-8 sm:flex-row sm:items-center">
           <div>
-            <img src="/logo.png" alt="SpinStrip" className="h-7 w-auto" draggable={false} />
+            <Image src="/logo.png" alt="SpinStrip" width={1671} height={512} className="h-7 w-auto" draggable={false} />
             <p className="mt-3 max-w-sm text-sm leading-relaxed text-[#6b6480]">
               SpinStrip Places helps small and medium businesses get found — list your
               place, host events and publish your menu where customers are already looking.

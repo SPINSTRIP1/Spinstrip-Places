@@ -1,4 +1,8 @@
+'use client'
+
 import { useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
+import Link from 'next/link'
 import { ArrowUpRight } from 'lucide-react'
 
 export default function Header() {
@@ -29,17 +33,20 @@ export default function Header() {
       }`}
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <a href="/" className="flex items-center gap-2.5">
-          <img
+        <Link href="/" className="flex items-center gap-2.5">
+          <Image
             src="/logo.png"
             alt="SpinStrip"
+            width={1671}
+            height={512}
+            priority
             className="h-6 w-auto sm:h-7"
             draggable={false}
           />
           <span className="rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-violet-600">
             Places
           </span>
-        </a>
+        </Link>
         <nav className="flex items-center gap-3">
           <a
             href="https://spinstrip.com/"

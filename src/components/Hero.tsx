@@ -1,3 +1,5 @@
+'use client'
+
 import { MapPin, Search, Sparkles } from 'lucide-react'
 
 interface HeroProps {

@@ -1,3 +1,6 @@
+'use client'
+
+import Image from 'next/image'
 import { discounted, formatNaira, type MenuItem } from '@/data/restaurants'
 import { Flame, Plus } from 'lucide-react'
 
@@ -18,11 +21,12 @@ export default function MenuItemCard({ item, accent, index, onOpen, onQuickAdd }
       onClick={() => onOpen(item)}
     >
       <div className="relative aspect-[4/3] overflow-hidden">
-        <img
+        <Image
           src={item.image}
           alt={item.name}
-          loading="lazy"
-          className="card-img h-full w-full object-cover"
+          fill
+          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+          className="card-img object-cover"
           draggable={false}
         />
         {item.deal && (

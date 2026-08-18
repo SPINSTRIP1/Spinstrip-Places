@@ -1,6 +1,9 @@
+'use client'
+
 import { discounted, formatNaira, type MenuItem } from '@/data/restaurants'
 import { AlertTriangle, Flame, Minus, Plus, ShoppingBag, Wheat, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 
 interface Props {
   item: MenuItem
@@ -24,7 +27,13 @@ export default function ItemSheet({ item, accent, gradient, onClose, onAdd }: Pr
       <div className="sheet-overlay absolute inset-0 bg-[#1c1533]/50 backdrop-blur-sm" onClick={onClose} />
       <div className="sheet-panel relative flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-white sm:rounded-3xl">
         <div className="relative h-52 shrink-0 sm:h-60">
-          <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+          <Image
+            src={item.image}
+            alt={item.name}
+            fill
+            sizes="(min-width: 640px) 32rem, 100vw"
+            className="object-cover"
+          />
           <button
             onClick={onClose}
             className="btn-press absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-[#1c1533] shadow-md"

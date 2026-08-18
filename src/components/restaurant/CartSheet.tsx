@@ -1,6 +1,9 @@
+'use client'
+
 import { discounted, formatNaira, type MenuItem, type Restaurant } from '@/data/restaurants'
 import { BadgeCheck, ChevronLeft, CreditCard, Minus, Plus, Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 
 export interface CartLine {
   item: MenuItem
@@ -92,7 +95,13 @@ export default function CartSheet({ restaurant, lines, onClose, onQty, onClear }
                 <ul className="space-y-4">
                   {lines.map(({ item, qty }) => (
                     <li key={item.id} className="flex gap-3">
-                      <img src={item.image} alt={item.name} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
+                      <Image
+                        src={item.image}
+                        alt={item.name}
+                        width={64}
+                        height={64}
+                        className="h-16 w-16 shrink-0 rounded-2xl object-cover"
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-[#1c1533]">{item.name}</p>
                         <p className="text-xs text-[#8a82a0]">{formatNaira(discounted(item))} each</p>
@@ -166,7 +175,7 @@ export default function CartSheet({ restaurant, lines, onClose, onQty, onClear }
                 </div>
               </div>
               <p className="mt-4 text-[11px] leading-relaxed text-[#a49fbc]">
-                By paying you agree to SpinStrip's terms. This demo checkout simulates payment — no card is charged.
+                By paying you agree to SpinStrip&apos;s terms. This demo checkout simulates payment — no card is charged.
               </p>
             </div>
             <div className="shrink-0 border-t border-violet-100 p-5" style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}>

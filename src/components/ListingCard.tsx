@@ -1,3 +1,6 @@
+'use client'
+
+import Image from 'next/image'
 import type { Listing } from '@/data/listings'
 import { MapPin, Star } from 'lucide-react'
 
@@ -15,11 +18,12 @@ export default function ListingCard({ listing, index, onOpen }: Props) {
       onClick={() => onOpen?.(listing)}
     >
       <div className="relative aspect-[4/3] overflow-hidden">
-        <img
+        <Image
           src={listing.image}
           alt={listing.name}
-          loading="lazy"
-          className="card-img h-full w-full object-cover"
+          fill
+          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+          className="card-img object-cover"
           draggable={false}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />

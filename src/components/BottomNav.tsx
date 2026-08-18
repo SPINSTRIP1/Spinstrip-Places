@@ -1,3 +1,5 @@
+'use client'
+
 import { SECTIONS, type SectionKey } from '@/data/listings'
 import { CalendarRange, MapPin, UtensilsCrossed } from 'lucide-react'
 

@@ -1,3 +1,5 @@
+'use client'
+
 import { ArrowDownAZ, ArrowUpDown, Star } from 'lucide-react'
 
 export type SortKey = 'recommended' | 'rating' | 'az'

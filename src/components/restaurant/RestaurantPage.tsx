@@ -1,3 +1,5 @@
+'use client'
+
 import CartSheet, { type CartLine } from '@/components/restaurant/CartSheet'
 import ItemSheet from '@/components/restaurant/ItemSheet'
 import MenuItemCard from '@/components/restaurant/MenuItemCard'
@@ -5,13 +7,14 @@ import RestaurantLogo from '@/components/restaurant/RestaurantLogo'
 import { discounted, formatNaira, type MenuItem, type Restaurant } from '@/data/restaurants'
 import { ArrowLeft, BadgePercent, MapPin, Search, SearchX, ShoppingBag, Star } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
+import Link from 'next/link'
 
 interface Props {
   restaurant: Restaurant
-  onBack: () => void
 }
 
-export default function RestaurantPage({ restaurant, onBack }: Props) {
+export default function RestaurantPage({ restaurant }: Props) {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('All')
   const [openItem, setOpenItem] = useState<MenuItem | null>(null)
@@ -89,12 +92,12 @@ export default function RestaurantPage({ restaurant, onBack }: Props) {
       {/* Top bar */}
       <header className="fixed inset-x-0 top-0 z-40 border-b border-violet-100 bg-white/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <button
-            onClick={onBack}
+          <Link
+            href="/"
             className="btn-press flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-3.5 py-2 text-sm font-semibold text-[#1c1533] hover:border-violet-400"
           >
             <ArrowLeft className="h-4 w-4" /> Back
-          </button>
+          </Link>
           <div className="flex min-w-0 items-center gap-2">
             <RestaurantLogo monogram={restaurant.monogram} bg={restaurant.logoBg} size={32} className="rounded-xl" />
             <span className="truncate font-display text-sm font-bold text-[#1c1533] sm:text-base">
@@ -122,7 +125,14 @@ export default function RestaurantPage({ restaurant, onBack }: Props) {
       {/* Branded hero */}
       <section className="relative">
         <div className="relative h-56 overflow-hidden sm:h-72">
-          <img src={restaurant.cover} alt={restaurant.name} className="h-full w-full object-cover" />
+          <Image
+            src={restaurant.cover}
+            alt={restaurant.name}
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+          />
           <div
             className="absolute inset-0"
             style={{ background: `linear-gradient(to top, rgba(28,21,51,0.72), rgba(28,21,51,0.08) 60%), linear-gradient(135deg, ${restaurant.accent}33, transparent 55%)` }}
@@ -149,7 +159,7 @@ export default function RestaurantPage({ restaurant, onBack }: Props) {
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2 self-start sm:self-center">
-                <img src="/logo.png" alt="SpinStrip" className="h-4 w-auto opacity-70" />
+                <Image src="/logo.png" alt="SpinStrip" width={1671} height={512} className="h-4 w-auto opacity-70" />
                 <span className="text-[10px] font-medium uppercase tracking-widest text-[#a49fbc]">on SpinStrip</span>
               </div>
             </div>
@@ -186,7 +196,13 @@ export default function RestaurantPage({ restaurant, onBack }: Props) {
                 onClick={() => setOpenItem(item)}
                 className="listing-card group flex w-64 shrink-0 items-center gap-3 rounded-3xl border border-violet-100 bg-white/90 p-3 text-left backdrop-blur-md"
               >
-                <img src={item.image} alt={item.name} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
+                <Image
+                  src={item.image}
+                  alt={item.name}
+                  width={64}
+                  height={64}
+                  className="h-16 w-16 shrink-0 rounded-2xl object-cover"
+                />
                 <div className="min-w-0 flex-1">
                   <span
                     className="inline-block rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
