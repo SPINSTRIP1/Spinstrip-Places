@@ -5,7 +5,7 @@
 @layer base {
   :root {
     --background: 262 60% 98%;
-    --foreground: 258 38% 14%;
+    --foreground: 0 0% 3.9%;
     --card: 0 0% 100%;
     --card-foreground: 258 38% 14%;
     --popover: 0 0% 100%;
@@ -45,11 +45,21 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-inter), 'Inter', -apple-system, 'Segoe UI', sans-serif;
+    font-family:
+      var(--font-inter),
+      "Inter",
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
     overflow-x: hidden;
   }
   .font-display {
-    font-family: var(--font-sora), 'Sora', 'Inter', -apple-system, sans-serif;
+    font-family:
+      var(--font-sora),
+      "Sora",
+      "Inter",
+      -apple-system,
+      sans-serif;
   }
 }
 
@@ -60,8 +70,12 @@
   inset: 0;
   z-index: -2;
   overflow: hidden;
-  background:
-    radial-gradient(120% 90% at 50% 0%, #ffffff 0%, #f7f3fd 48%, #f1ebfb 100%);
+  background: radial-gradient(
+    120% 90% at 50% 0%,
+    #ffffff 0%,
+    #f7f3fd 48%,
+    #f1ebfb 100%
+  );
 }
 
 .aurora-hue {
@@ -79,27 +93,51 @@
 }
 
 .aurora-blob-1 {
-  width: 62vmax; height: 62vmax;
-  left: -18vmax; top: -20vmax;
-  background: radial-gradient(circle at 35% 35%, rgba(140, 52, 234, 0.20), transparent 62%);
+  width: 62vmax;
+  height: 62vmax;
+  left: -18vmax;
+  top: -20vmax;
+  background: radial-gradient(
+    circle at 35% 35%,
+    rgba(140, 52, 234, 0.2),
+    transparent 62%
+  );
   animation: drift-a 26s ease-in-out infinite;
 }
 .aurora-blob-2 {
-  width: 48vmax; height: 48vmax;
-  right: -14vmax; top: 8vmax;
-  background: radial-gradient(circle at 60% 40%, rgba(175, 70, 232, 0.17), transparent 60%);
+  width: 48vmax;
+  height: 48vmax;
+  right: -14vmax;
+  top: 8vmax;
+  background: radial-gradient(
+    circle at 60% 40%,
+    rgba(175, 70, 232, 0.17),
+    transparent 60%
+  );
   animation: drift-b 32s ease-in-out infinite;
 }
 .aurora-blob-3 {
-  width: 40vmax; height: 40vmax;
-  left: 8vmax; bottom: -18vmax;
-  background: radial-gradient(circle at 50% 50%, rgba(218, 130, 235, 0.22), transparent 60%);
+  width: 40vmax;
+  height: 40vmax;
+  left: 8vmax;
+  bottom: -18vmax;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(218, 130, 235, 0.22),
+    transparent 60%
+  );
   animation: drift-c 38s ease-in-out infinite;
 }
 .aurora-blob-4 {
-  width: 30vmax; height: 30vmax;
-  right: 12vmax; bottom: 4vmax;
-  background: radial-gradient(circle at 50% 50%, rgba(124, 58, 237, 0.15), transparent 60%);
+  width: 30vmax;
+  height: 30vmax;
+  right: 12vmax;
+  bottom: 4vmax;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(124, 58, 237, 0.15),
+    transparent 60%
+  );
   animation: drift-a 44s ease-in-out infinite reverse;
 }
 
@@ -119,26 +157,53 @@
 }
 
 @keyframes aurora-hue {
-  0%   { filter: hue-rotate(-16deg) saturate(1); }
-  50%  { filter: hue-rotate(14deg) saturate(1.15); }
-  100% { filter: hue-rotate(-8deg) saturate(1.05); }
+  0% {
+    filter: hue-rotate(-16deg) saturate(1);
+  }
+  50% {
+    filter: hue-rotate(14deg) saturate(1.15);
+  }
+  100% {
+    filter: hue-rotate(-8deg) saturate(1.05);
+  }
 }
 @keyframes drift-a {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  33%      { transform: translate3d(9vw, 6vh, 0) scale(1.14); }
-  66%      { transform: translate3d(-6vw, 10vh, 0) scale(0.94); }
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(9vw, 6vh, 0) scale(1.14);
+  }
+  66% {
+    transform: translate3d(-6vw, 10vh, 0) scale(0.94);
+  }
 }
 @keyframes drift-b {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  40%      { transform: translate3d(-10vw, -5vh, 0) scale(1.1); }
-  75%      { transform: translate3d(5vw, 8vh, 0) scale(0.92); }
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  40% {
+    transform: translate3d(-10vw, -5vh, 0) scale(1.1);
+  }
+  75% {
+    transform: translate3d(5vw, 8vh, 0) scale(0.92);
+  }
 }
 @keyframes drift-c {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50%      { transform: translate3d(12vw, -9vh, 0) scale(1.16); }
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(12vw, -9vh, 0) scale(1.16);
+  }
 }
 @keyframes sheen-rotate {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Film grain — subtle multiply texture on light canvas */
@@ -153,18 +218,34 @@
   animation: grain-static 0.9s steps(4) infinite;
 }
 @keyframes grain-static {
-  0% { transform: translate(0, 0); }
-  25% { transform: translate(-2%, 3%); }
-  50% { transform: translate(3%, -2%); }
-  75% { transform: translate(-3%, -3%); }
-  100% { transform: translate(2%, 2%); }
+  0% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(-2%, 3%);
+  }
+  50% {
+    transform: translate(3%, -2%);
+  }
+  75% {
+    transform: translate(-3%, -3%);
+  }
+  100% {
+    transform: translate(2%, 2%);
+  }
 }
 
 /* ───────────────────────────── Motion system ───────────────────────────── */
 
 @keyframes rise-in {
-  from { opacity: 0; transform: translateY(26px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .rise-in {
   animation: rise-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards;
@@ -172,8 +253,14 @@
 }
 
 @keyframes card-in {
-  from { opacity: 0; transform: translateY(22px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 .card-in {
   animation: card-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
@@ -181,55 +268,113 @@
 }
 
 @keyframes section-swap {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .section-swap {
   animation: section-swap 0.38s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 @keyframes glow-pulse {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
 }
-.glow-dot { animation: glow-pulse 2.4s ease-in-out infinite; }
+.glow-dot {
+  animation: glow-pulse 2.4s ease-in-out infinite;
+}
 
 @keyframes float-slow {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-9px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-9px);
+  }
 }
-.float-slow { animation: float-slow 5.5s ease-in-out infinite; }
+.float-slow {
+  animation: float-slow 5.5s ease-in-out infinite;
+}
 
 /* Header hide on scroll */
-.site-header { transition: transform 0.35s ease, background-color 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease; }
-.site-header.header-hidden { transform: translateY(-110%); }
+.site-header {
+  transition:
+    transform 0.35s ease,
+    background-color 0.35s ease,
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+.site-header.header-hidden {
+  transform: translateY(-110%);
+}
 
 /* Horizontal chip rail with gradient edge masks */
 .chip-rail {
-  -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
-  mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 5%,
+    black 95%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 5%,
+    black 95%,
+    transparent
+  );
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-.chip-rail::-webkit-scrollbar { width: 0; height: 0; display: none; }
+.chip-rail::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
 
 /* Cards */
 .listing-card {
-  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease, border-color 0.4s ease;
+  transition:
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.4s ease,
+    border-color 0.4s ease;
   box-shadow: 0 1px 3px rgba(28, 21, 51, 0.05);
 }
 .listing-card:hover {
   transform: translateY(-6px);
   border-color: rgba(140, 52, 234, 0.4);
-  box-shadow: 0 20px 50px -18px rgba(140, 52, 234, 0.35), 0 0 0 1px rgba(140, 52, 234, 0.12);
+  box-shadow:
+    0 20px 50px -18px rgba(140, 52, 234, 0.35),
+    0 0 0 1px rgba(140, 52, 234, 0.12);
 }
-.listing-card:active { transform: translateY(-2px) scale(0.985); }
-.listing-card .card-img { transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1); }
-.listing-card:hover .card-img { transform: scale(1.06); }
+.listing-card:active {
+  transform: translateY(-2px) scale(0.985);
+}
+.listing-card .card-img {
+  transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.listing-card:hover .card-img {
+  transform: scale(1.06);
+}
 
 /* Search glow */
 .search-shell {
-  transition: box-shadow 0.4s ease, border-color 0.4s ease, transform 0.3s ease;
+  transition:
+    box-shadow 0.4s ease,
+    border-color 0.4s ease,
+    transform 0.3s ease;
 }
 .search-shell:focus-within {
   border-color: rgba(140, 52, 234, 0.6);
@@ -240,33 +385,69 @@
 }
 
 /* Segmented control pill */
-.seg-pill { transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1); }
+.seg-pill {
+  transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
 
 /* Chips */
-.chip { transition: background-color 0.28s ease, color 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease, transform 0.2s ease; }
-.chip:active { transform: scale(0.95); }
+.chip {
+  transition:
+    background-color 0.28s ease,
+    color 0.28s ease,
+    border-color 0.28s ease,
+    box-shadow 0.28s ease,
+    transform 0.2s ease;
+}
+.chip:active {
+  transform: scale(0.95);
+}
 .chip-active {
   box-shadow: 0 6px 24px -6px rgba(140, 52, 234, 0.55);
 }
 
 /* Bottom nav */
-.bottom-nav-item { transition: color 0.25s ease, transform 0.2s ease; }
-.bottom-nav-item:active { transform: scale(0.9); }
+.bottom-nav-item {
+  transition:
+    color 0.25s ease,
+    transform 0.2s ease;
+}
+.bottom-nav-item:active {
+  transform: scale(0.9);
+}
 
 /* Buttons */
-.btn-press { transition: transform 0.2s ease, box-shadow 0.3s ease, background-color 0.3s ease; }
-.btn-press:active { transform: scale(0.96); }
+.btn-press {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.3s ease,
+    background-color 0.3s ease;
+}
+.btn-press:active {
+  transform: scale(0.96);
+}
 
 /* Sheets (item detail / cart / checkout) */
 @keyframes sheet-overlay-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 @keyframes sheet-panel-in {
-  from { opacity: 0; transform: translateY(48px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(48px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-.sheet-overlay { animation: sheet-overlay-in 0.3s ease both; }
+.sheet-overlay {
+  animation: sheet-overlay-in 0.3s ease both;
+}
 .sheet-panel {
   animation: sheet-panel-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
   box-shadow: 0 -12px 60px -12px rgba(28, 21, 51, 0.35);
@@ -274,12 +455,25 @@
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .aurora-hue, .aurora-blob, .aurora-sheen, .grain, .float-slow, .glow-dot,
-  .rise-in, .card-in, .section-swap {
+  .aurora-hue,
+  .aurora-blob,
+  .aurora-sheen,
+  .grain,
+  .float-slow,
+  .glow-dot,
+  .rise-in,
+  .card-in,
+  .section-swap {
     animation: none !important;
   }
-  .listing-card, .listing-card .card-img, .search-shell, .chip, .seg-pill {
+  .listing-card,
+  .listing-card .card-img,
+  .search-shell,
+  .chip,
+  .seg-pill {
     transition-duration: 0.01s !important;
   }
-  html { scroll-behavior: auto; }
+  html {
+    scroll-behavior: auto;
+  }
 }

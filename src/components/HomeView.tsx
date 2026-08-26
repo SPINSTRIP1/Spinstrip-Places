@@ -1,57 +1,143 @@
-'use client'
+"use client";
 
-import { useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import AuroraBackground from '@/components/AuroraBackground'
-import BottomNav from '@/components/BottomNav'
-import CategoryChips, { type SortKey } from '@/components/CategoryChips'
-import Footer from '@/components/Footer'
-import Header from '@/components/Header'
-import Hero from '@/components/Hero'
-import ListingCard from '@/components/ListingCard'
-import SectionTabs from '@/components/SectionTabs'
-import { CATEGORIES, LISTINGS, SECTIONS, type Listing, type SectionKey } from '@/data/listings'
-import { RESTAURANTS } from '@/data/restaurants'
-import { SearchX } from 'lucide-react'
+import { useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import AuroraBackground from "@/components/AuroraBackground";
+import BottomNav from "@/components/BottomNav";
+import CategoryChips from "@/components/CategoryChips";
+import Footer from "@/components/Footer";
+import Header from "@/components/Header";
+import Hero from "@/components/Hero";
+import ListingCard from "@/components/ListingCard";
+import SectionTabs from "@/components/SectionTabs";
+import { SECTIONS, type Listing, type SectionKey } from "@/data/listings";
+import {
+  EVENT_CATEGORIES,
+  EVENT_FEATURED_VALUE,
+  EVENT_SORTS,
+  MENU_CATEGORIES,
+  MENU_SORTS,
+  PAGE_SIZE,
+  PLACE_CATEGORIES,
+  PLACE_SORTS,
+  type SortKey,
+} from "@/constants";
+import { usePublicPlaces } from "@/hooks/use-places";
+import { usePublicEvents } from "@/hooks/use-events";
+import { usePublicMenu } from "@/hooks/use-menu";
+import { useDebouncedValue } from "@/hooks/use-debounce";
+import {
+  transformEventToListing,
+  transformMenuItemToListing,
+  transformPlaceToListing,
+} from "@/utils";
+import { SearchX, Loader2 } from "lucide-react";
+
+const CATEGORY_OPTIONS = {
+  places: PLACE_CATEGORIES,
+  events: EVENT_CATEGORIES,
+  menu: MENU_CATEGORIES,
+} as const;
 
 export default function HomeView() {
-  const router = useRouter()
-  const [section, setSection] = useState<SectionKey>('places')
-  const [category, setCategory] = useState('All')
-  const [query, setQuery] = useState('')
-  const [sort, setSort] = useState<SortKey>('recommended')
-  const resultsRef = useRef<HTMLDivElement>(null)
+  const router = useRouter();
+  const [section, setSection] = useState<SectionKey>("places");
+  const [category, setCategory] = useState("");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<SortKey>("recommended");
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  // Search runs on the server, so only send it once typing settles.
+  const search = useDebouncedValue(query.trim(), 400);
+
+  // Every filter below is a server query param — nothing is filtered client-side.
+  const {
+    places,
+    count: placesCount,
+    isLoading: placesLoading,
+  } = usePublicPlaces(
+    {
+      status: "PUBLISHED",
+      placeType: category || undefined,
+      search: search || undefined,
+      ...PLACE_SORTS[sort],
+      page: 1,
+      limit: PAGE_SIZE,
+    },
+    { enabled: section === "places" },
+  );
+
+  const {
+    events,
+    count: eventsCount,
+    isLoading: eventsLoading,
+  } = usePublicEvents(
+    {
+      status: "ACTIVE",
+      isFeatured: category === EVENT_FEATURED_VALUE ? true : undefined,
+      frequency:
+        category && category !== EVENT_FEATURED_VALUE ? category : undefined,
+      search: search || undefined,
+      ...EVENT_SORTS[sort],
+      page: 1,
+      limit: PAGE_SIZE,
+    },
+    { enabled: section === "events" },
+  );
+
+  const {
+    menuItems,
+    count: menuCount,
+    isLoading: menuLoading,
+  } = usePublicMenu(
+    {
+      category: category || undefined,
+      search: search || undefined,
+      ...MENU_SORTS[sort],
+      page: 1,
+      limit: PAGE_SIZE,
+    },
+    { enabled: section === "menu" },
+  );
 
   const handleSection = (s: SectionKey) => {
-    setSection(s)
-    setCategory('All')
-    resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
+    setSection(s);
+    setCategory("");
+    resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
-  const visible = useMemo(() => {
-    let items = LISTINGS[section]
-    if (category !== 'All') items = items.filter((i) => i.category === category)
-    const q = query.trim().toLowerCase()
-    if (q) {
-      items = items.filter((i) =>
-        [i.name, i.location, i.description, i.category]
-          .join(' ')
-          .toLowerCase()
-          .includes(q),
-      )
-    }
-    if (sort === 'rating') items = [...items].sort((a, b) => b.rating - a.rating)
-    if (sort === 'az') items = [...items].sort((a, b) => a.name.localeCompare(b.name))
-    return items
-  }, [section, category, query, sort])
+  const visible: Listing[] = useMemo(() => {
+    if (section === "places") return places.map(transformPlaceToListing);
+    if (section === "events") return events.map(transformEventToListing);
+    return menuItems.map(transformMenuItemToListing);
+  }, [section, places, events, menuItems]);
 
-  const activeSection = SECTIONS.find((s) => s.key === section)!
+  const total =
+    section === "places"
+      ? placesCount
+      : section === "events"
+        ? eventsCount
+        : menuCount;
+
+  // isLoading is true only while the active section has no data yet, so a
+  // background refetch never swaps rendered cards for the spinner.
+  const isLoading =
+    section === "places"
+      ? placesLoading
+      : section === "events"
+        ? eventsLoading
+        : menuLoading;
+
+  const activeSection = SECTIONS.find((s) => s.key === section)!;
 
   const handleOpen = (listing: Listing) => {
-    if (section !== 'menu') return
-    const restaurant = RESTAURANTS.find((r) => r.listingId === listing.id)
-    if (restaurant) router.push(`/restaurants/${restaurant.id}`)
-  }
+    if (section === "menu") return;
+    if (section === "events") {
+      router.push(`/preview/events?id=${listing.id}`);
+      return;
+    }
+    router.push(`/preview/places?id=${listing.id}`);
+  };
 
   return (
     <div className="min-h-screen">
@@ -65,7 +151,7 @@ export default function HomeView() {
         <div ref={resultsRef} className="scroll-mt-20">
           <CategoryChips
             key={section}
-            categories={CATEGORIES[section]}
+            categories={CATEGORY_OPTIONS[section]}
             active={category}
             onChange={setCategory}
             sort={sort}
@@ -78,31 +164,50 @@ export default function HomeView() {
                 <h2 className="font-display text-2xl font-bold text-[#1c1533] sm:text-3xl">
                   {activeSection.label}
                 </h2>
-                <p className="mt-1 text-sm text-[#8a82a0]">{activeSection.blurb}</p>
+                <p className="mt-1 text-sm text-[#8a82a0]">
+                  {activeSection.blurb}
+                </p>
               </div>
               <span className="shrink-0 rounded-full border border-violet-200 bg-white/70 px-3 py-1 text-xs font-medium text-[#6b6480]">
-                {visible.length} {visible.length === 1 ? 'result' : 'results'}
+                {total} {total === 1 ? "result" : "results"}
               </span>
             </div>
 
-            {visible.length > 0 ? (
+            {isLoading ? (
+              <div className="section-swap flex flex-col items-center gap-3 rounded-3xl border border-dashed border-violet-300 bg-white/60 py-16 text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-violet-400" />
+                <p className="font-display text-lg font-semibold text-[#1c1533]">
+                  Loading {activeSection.label.toLowerCase()}...
+                </p>
+              </div>
+            ) : visible.length > 0 ? (
               <div
-                key={`${section}-${category}-${sort}`}
+                key={`${section}-${category}-${sort}-${search}`}
                 className="section-swap grid grid-cols-1 gap-5 pb-6 sm:grid-cols-2 lg:grid-cols-3"
               >
                 {visible.map((l, i) => (
-                  <ListingCard key={l.id} listing={l} index={i} onOpen={handleOpen} />
+                  <ListingCard
+                    key={l.id}
+                    listing={l}
+                    index={i}
+                    onOpen={handleOpen}
+                  />
                 ))}
               </div>
             ) : (
               <div className="section-swap flex flex-col items-center gap-3 rounded-3xl border border-dashed border-violet-300 bg-white/60 py-16 text-center">
                 <SearchX className="h-8 w-8 text-violet-400" />
-                <p className="font-display text-lg font-semibold text-[#1c1533]">Nothing found</p>
+                <p className="font-display text-lg font-semibold text-[#1c1533]">
+                  Nothing found
+                </p>
                 <p className="max-w-xs text-sm text-[#8a82a0]">
                   Try a different search term or clear the category filter.
                 </p>
                 <button
-                  onClick={() => { setQuery(''); setCategory('All') }}
+                  onClick={() => {
+                    setQuery("");
+                    setCategory("");
+                  }}
                   className="btn-press mt-2 rounded-full bg-[#8c34ea] px-5 py-2 text-sm font-semibold text-white hover:bg-[#9b46f0]"
                 >
                   Clear filters
@@ -116,5 +221,5 @@ export default function HomeView() {
       <Footer />
       <BottomNav active={section} onChange={handleSection} />
     </div>
-  )
+  );
 }
