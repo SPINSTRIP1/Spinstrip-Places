@@ -55,23 +55,23 @@ export default function CartSheet({ restaurant, lines, onClose, onQty, onClear }
   }
 
   const inputCls = (key: string) =>
-    `w-full rounded-2xl border bg-white px-4 py-3 text-sm text-[#1c1533] outline-none transition-all placeholder:text-[#a49fbc] focus:border-violet-400 focus:ring-4 focus:ring-violet-100 ${
-      errors[key] ? 'border-red-300' : 'border-violet-200'
+    `w-full rounded-2xl border bg-white px-4 py-3 text-sm text-[#0F0F0F] outline-none transition-all placeholder:text-[#C8C8C8] focus:border-primary-light focus:ring-4 focus:ring-primary-accent ${
+      errors[key] ? 'border-red-300' : 'border-background-light'
     }`
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="sheet-overlay absolute inset-0 bg-[#1c1533]/50 backdrop-blur-sm" onClick={stage === 'processing' ? undefined : onClose} />
+      <div className="sheet-overlay absolute inset-0 bg-[#0F0F0F]/50 backdrop-blur-sm" onClick={stage === 'processing' ? undefined : onClose} />
       <div className="sheet-panel relative flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-white sm:rounded-3xl">
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-violet-100 px-5 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-background-light px-5 py-4">
           <div className="flex items-center gap-2.5">
             {stage === 'checkout' && (
-              <button onClick={() => setStage('cart')} className="btn-press -ml-1 flex h-8 w-8 items-center justify-center rounded-full bg-violet-50 text-[#1c1533]" aria-label="Back to cart">
+              <button onClick={() => setStage('cart')} className="btn-press -ml-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary-accent text-[#0F0F0F]" aria-label="Back to cart">
                 <ChevronLeft className="h-4 w-4" />
               </button>
             )}
-            <h3 className="font-display text-lg font-bold text-[#1c1533]">
+            <h3 className="font-display text-lg font-bold text-[#0F0F0F]">
               {stage === 'cart' && `Your cart · ${restaurant.name}`}
               {stage === 'checkout' && 'Checkout'}
               {stage === 'processing' && 'Processing payment'}
@@ -79,7 +79,7 @@ export default function CartSheet({ restaurant, lines, onClose, onQty, onClear }
             </h3>
           </div>
           {stage !== 'processing' && (
-            <button onClick={onClose} className="btn-press flex h-9 w-9 items-center justify-center rounded-full bg-violet-50 text-[#1c1533]" aria-label="Close">
+            <button onClick={onClose} className="btn-press flex h-9 w-9 items-center justify-center rounded-full bg-primary-accent text-[#0F0F0F]" aria-label="Close">
               <X className="h-5 w-5" />
             </button>
           )}
@@ -90,7 +90,7 @@ export default function CartSheet({ restaurant, lines, onClose, onQty, onClear }
           <>
             <div className="flex-1 overflow-y-auto p-5">
               {lines.length === 0 ? (
-                <p className="py-10 text-center text-sm text-[#8a82a0]">Your cart is empty — add something delicious.</p>
+                <p className="py-10 text-center text-sm text-[#6F6D6D]">Your cart is empty — add something delicious.</p>
               ) : (
                 <ul className="space-y-4">
                   {lines.map(({ item, qty }) => (
@@ -103,19 +103,19 @@ export default function CartSheet({ restaurant, lines, onClose, onQty, onClear }
                         className="h-16 w-16 shrink-0 rounded-2xl object-cover"
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-[#1c1533]">{item.name}</p>
-                        <p className="text-xs text-[#8a82a0]">{formatNaira(discounted(item))} each</p>
+                        <p className="truncate text-sm font-semibold text-[#0F0F0F]">{item.name}</p>
+                        <p className="text-xs text-[#6F6D6D]">{formatNaira(discounted(item))} each</p>
                         <div className="mt-1.5 flex items-center gap-2">
-                          <button onClick={() => onQty(item.id, -1)} className="btn-press flex h-7 w-7 items-center justify-center rounded-full border border-violet-200 text-[#1c1533]" aria-label="Decrease">
+                          <button onClick={() => onQty(item.id, -1)} className="btn-press flex h-7 w-7 items-center justify-center rounded-full border border-background-light text-[#0F0F0F]" aria-label="Decrease">
                             {qty === 1 ? <Trash2 className="h-3.5 w-3.5 text-red-400" /> : <Minus className="h-3.5 w-3.5" />}
                           </button>
-                          <span className="w-5 text-center text-sm font-bold text-[#1c1533]">{qty}</span>
-                          <button onClick={() => onQty(item.id, 1)} className="btn-press flex h-7 w-7 items-center justify-center rounded-full border border-violet-200 text-[#1c1533]" aria-label="Increase">
+                          <span className="w-5 text-center text-sm font-bold text-[#0F0F0F]">{qty}</span>
+                          <button onClick={() => onQty(item.id, 1)} className="btn-press flex h-7 w-7 items-center justify-center rounded-full border border-background-light text-[#0F0F0F]" aria-label="Increase">
                             <Plus className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       </div>
-                      <span className="font-display shrink-0 text-sm font-bold text-[#1c1533]">
+                      <span className="font-display shrink-0 text-sm font-bold text-[#0F0F0F]">
                         {formatNaira(discounted(item) * qty)}
                       </span>
                     </li>
@@ -124,11 +124,11 @@ export default function CartSheet({ restaurant, lines, onClose, onQty, onClear }
               )}
             </div>
             {lines.length > 0 && (
-              <div className="shrink-0 border-t border-violet-100 p-5" style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}>
+              <div className="shrink-0 border-t border-background-light p-5" style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}>
                 <div className="mb-4 space-y-1.5 text-sm">
-                  <div className="flex justify-between text-[#6b6480]"><span>Subtotal</span><span>{formatNaira(subtotal)}</span></div>
-                  <div className="flex justify-between text-[#6b6480]"><span>Service fee (5%)</span><span>{formatNaira(service)}</span></div>
-                  <div className="flex justify-between font-display text-base font-bold text-[#1c1533]"><span>Total</span><span>{formatNaira(total)}</span></div>
+                  <div className="flex justify-between text-[#6F6D6D]"><span>Subtotal</span><span>{formatNaira(subtotal)}</span></div>
+                  <div className="flex justify-between text-[#6F6D6D]"><span>Service fee (5%)</span><span>{formatNaira(service)}</span></div>
+                  <div className="flex justify-between font-display text-base font-bold text-[#0F0F0F]"><span>Total</span><span>{formatNaira(total)}</span></div>
                 </div>
                 <button
                   onClick={() => setStage('checkout')}
@@ -146,15 +146,15 @@ export default function CartSheet({ restaurant, lines, onClose, onQty, onClear }
         {stage === 'checkout' && (
           <>
             <div className="flex-1 overflow-y-auto p-5">
-              <div className="mb-5 rounded-2xl bg-[#faf7fe] p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[#8a82a0]">Order summary</p>
-                <p className="mt-1.5 text-sm text-[#6b6480]">
+              <div className="mb-5 rounded-2xl bg-[#F8F8F8] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[#6F6D6D]">Order summary</p>
+                <p className="mt-1.5 text-sm text-[#6F6D6D]">
                   {lines.reduce((s, l) => s + l.qty, 0)} items at {restaurant.name}
                 </p>
-                <p className="font-display mt-1 text-xl font-bold text-[#1c1533]">{formatNaira(total)}</p>
+                <p className="font-display mt-1 text-xl font-bold text-[#0F0F0F]">{formatNaira(total)}</p>
               </div>
 
-              <p className="mb-3 text-sm font-medium text-[#6b6480]">
+              <p className="mb-3 text-sm font-medium text-[#6F6D6D]">
                 Create your SpinStrip account to pay and track this order:
               </p>
               <div className="space-y-3">
@@ -174,11 +174,11 @@ export default function CartSheet({ restaurant, lines, onClose, onQty, onClear }
                   {errors.phone && <p className="mt-1 text-xs text-red-500">{errors.phone}</p>}
                 </div>
               </div>
-              <p className="mt-4 text-[11px] leading-relaxed text-[#a49fbc]">
+              <p className="mt-4 text-[11px] leading-relaxed text-[#6F6D6D]">
                 By paying you agree to SpinStrip&apos;s terms. This demo checkout simulates payment — no card is charged.
               </p>
             </div>
-            <div className="shrink-0 border-t border-violet-100 p-5" style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}>
+            <div className="shrink-0 border-t border-background-light p-5" style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}>
               <button
                 onClick={pay}
                 className="btn-press flex w-full items-center justify-center gap-2 rounded-full py-3.5 font-display text-base font-semibold text-white shadow-lg"
@@ -195,10 +195,10 @@ export default function CartSheet({ restaurant, lines, onClose, onQty, onClear }
         {stage === 'processing' && (
           <div className="flex flex-col items-center gap-4 px-5 py-16">
             <div
-              className="h-12 w-12 animate-spin rounded-full border-4 border-violet-100"
+              className="h-12 w-12 animate-spin rounded-full border-4 border-background-light"
               style={{ borderTopColor: restaurant.accent }}
             />
-            <p className="text-sm font-medium text-[#6b6480]">Contacting your bank securely…</p>
+            <p className="text-sm font-medium text-[#6F6D6D]">Contacting your bank securely…</p>
           </div>
         )}
 
@@ -211,10 +211,10 @@ export default function CartSheet({ restaurant, lines, onClose, onQty, onClear }
             >
               <BadgeCheck className="h-8 w-8" />
             </span>
-            <h4 className="font-display text-xl font-bold text-[#1c1533]">Payment successful</h4>
-            <p className="max-w-xs text-sm leading-relaxed text-[#6b6480]">
-              Order <strong className="text-[#1c1533]">{orderId}</strong> is confirmed at {restaurant.name}.
-              A receipt was sent to <strong className="text-[#1c1533]">{form.email}</strong>.
+            <h4 className="font-display text-xl font-bold text-[#0F0F0F]">Payment successful</h4>
+            <p className="max-w-xs text-sm leading-relaxed text-[#6F6D6D]">
+              Order <strong className="text-[#0F0F0F]">{orderId}</strong> is confirmed at {restaurant.name}.
+              A receipt was sent to <strong className="text-[#0F0F0F]">{form.email}</strong>.
             </p>
             <button
               onClick={onClose}

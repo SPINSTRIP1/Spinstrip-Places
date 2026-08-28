@@ -31,20 +31,22 @@ export default function CategoryChips({
 }: Props) {
   return (
     <div className="mt-8">
-      <div className="chip-rail flex gap-2 overflow-x-auto px-4 py-1 sm:justify-center sm:px-6">
-        {categories.map((c) => (
-          <button
-            key={c.value || "all"}
-            onClick={() => onChange(c.value)}
-            className={`chip shrink-0 rounded-full border px-4 py-2 text-sm font-medium ${
-              active === c.value
-                ? "chip-active border-transparent bg-[#8c34ea] text-white"
-                : "border-violet-200 bg-white/70 text-[#6b6480] hover:border-violet-400 hover:text-[#1c1533]"
-            }`}
-          >
-            {c.label}
-          </button>
-        ))}
+      <div className="chip-rail overflow-x-auto px-4 py-1 sm:px-6">
+        <div className="mx-auto flex w-max gap-2">
+          {categories.map((c) => (
+            <button
+              key={c.value || "all"}
+              onClick={() => onChange(c.value)}
+              className={`chip shrink-0 rounded-full border px-4 py-2 text-sm font-medium ${
+                active === c.value
+                  ? "chip-active border-transparent bg-[#6932E2] text-white"
+                  : "border-background-light bg-white/70 text-[#6F6D6D] hover:border-primary-light hover:text-[#0F0F0F]"
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="mt-3 flex items-center justify-center gap-1.5">
         {SORTS.map((s) => (
@@ -53,8 +55,8 @@ export default function CategoryChips({
             onClick={() => onSort(s.key)}
             className={`chip flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
               sort === s.key
-                ? "bg-violet-100 text-violet-700"
-                : "text-[#8a82a0] hover:text-[#1c1533]"
+                ? "bg-primary-accent text-[#6932E2]"
+                : "text-[#6F6D6D] hover:text-[#0F0F0F]"
             }`}
           >
             {s.icon}

@@ -9,6 +9,8 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import ListingCard from "@/components/ListingCard";
+import ListingCardSkeletonGrid from "@/components/listing-card-skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import SectionTabs from "@/components/SectionTabs";
 import { SECTIONS, type Listing, type SectionKey } from "@/data/listings";
 import {
@@ -31,7 +33,7 @@ import {
   transformMenuItemToListing,
   transformPlaceToListing,
 } from "@/utils";
-import { SearchX, Loader2 } from "lucide-react";
+import { SearchX } from "lucide-react";
 
 const CATEGORY_OPTIONS = {
   places: PLACE_CATEGORIES,
@@ -161,25 +163,24 @@ export default function HomeView() {
           <section className="mx-auto mt-8 max-w-6xl px-4 sm:px-6">
             <div className="mb-5 flex items-end justify-between">
               <div>
-                <h2 className="font-display text-2xl font-bold text-[#1c1533] sm:text-3xl">
+                <h2 className="font-display text-2xl font-bold text-[#0F0F0F] sm:text-3xl">
                   {activeSection.label}
                 </h2>
-                <p className="mt-1 text-sm text-[#8a82a0]">
+                <p className="mt-1 text-sm text-[#6F6D6D]">
                   {activeSection.blurb}
                 </p>
               </div>
-              <span className="shrink-0 rounded-full border border-violet-200 bg-white/70 px-3 py-1 text-xs font-medium text-[#6b6480]">
-                {total} {total === 1 ? "result" : "results"}
-              </span>
+              {isLoading ? (
+                <Skeleton className="h-[26px] w-20 shrink-0 rounded-full" />
+              ) : (
+                <span className="shrink-0 rounded-full border border-background-light bg-white/70 px-3 py-1 text-xs font-medium text-[#6F6D6D]">
+                  {total} {total === 1 ? "result" : "results"}
+                </span>
+              )}
             </div>
 
             {isLoading ? (
-              <div className="section-swap flex flex-col items-center gap-3 rounded-3xl border border-dashed border-violet-300 bg-white/60 py-16 text-center">
-                <Loader2 className="h-8 w-8 animate-spin text-violet-400" />
-                <p className="font-display text-lg font-semibold text-[#1c1533]">
-                  Loading {activeSection.label.toLowerCase()}...
-                </p>
-              </div>
+              <ListingCardSkeletonGrid />
             ) : visible.length > 0 ? (
               <div
                 key={`${section}-${category}-${sort}-${search}`}
@@ -195,12 +196,12 @@ export default function HomeView() {
                 ))}
               </div>
             ) : (
-              <div className="section-swap flex flex-col items-center gap-3 rounded-3xl border border-dashed border-violet-300 bg-white/60 py-16 text-center">
-                <SearchX className="h-8 w-8 text-violet-400" />
-                <p className="font-display text-lg font-semibold text-[#1c1533]">
+              <div className="section-swap flex flex-col items-center gap-3 rounded-3xl border border-dashed border-neutral-accent bg-white/60 py-16 text-center">
+                <SearchX className="h-8 w-8 text-primary-light" />
+                <p className="font-display text-lg font-semibold text-[#0F0F0F]">
                   Nothing found
                 </p>
-                <p className="max-w-xs text-sm text-[#8a82a0]">
+                <p className="max-w-xs text-sm text-[#6F6D6D]">
                   Try a different search term or clear the category filter.
                 </p>
                 <button
@@ -208,7 +209,7 @@ export default function HomeView() {
                     setQuery("");
                     setCategory("");
                   }}
-                  className="btn-press mt-2 rounded-full bg-[#8c34ea] px-5 py-2 text-sm font-semibold text-white hover:bg-[#9b46f0]"
+                  className="btn-press mt-2 rounded-full bg-[#6932E2] px-5 py-2 text-sm font-semibold text-white hover:bg-[#7C4BE8]"
                 >
                   Clear filters
                 </button>

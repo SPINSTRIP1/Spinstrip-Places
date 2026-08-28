@@ -24,7 +24,7 @@ export default function ItemSheet({ item, accent, gradient, onClose, onAdd }: Pr
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="sheet-overlay absolute inset-0 bg-[#1c1533]/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="sheet-overlay absolute inset-0 bg-[#0F0F0F]/50 backdrop-blur-sm" onClick={onClose} />
       <div className="sheet-panel relative flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-white sm:rounded-3xl">
         <div className="relative h-52 shrink-0 sm:h-60">
           <Image
@@ -36,7 +36,7 @@ export default function ItemSheet({ item, accent, gradient, onClose, onAdd }: Pr
           />
           <button
             onClick={onClose}
-            className="btn-press absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-[#1c1533] shadow-md"
+            className="btn-press absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-[#0F0F0F] shadow-md"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
@@ -53,24 +53,24 @@ export default function ItemSheet({ item, accent, gradient, onClose, onAdd }: Pr
 
         <div className="flex-1 overflow-y-auto p-5">
           <div className="flex items-start justify-between gap-3">
-            <h3 className="font-display text-xl font-bold text-[#1c1533]">{item.name}</h3>
+            <h3 className="font-display text-xl font-bold text-[#0F0F0F]">{item.name}</h3>
             {item.spicy && (
               <span className="flex shrink-0 items-center gap-1 rounded-full bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-600">
                 <Flame className="h-3.5 w-3.5" /> Spicy
               </span>
             )}
           </div>
-          <p className="mt-2 text-sm leading-relaxed text-[#6b6480]">{item.description}</p>
+          <p className="mt-2 text-sm leading-relaxed text-[#6F6D6D]">{item.description}</p>
 
           <div className="mt-5">
-            <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#8a82a0]">
+            <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#6F6D6D]">
               <Wheat className="h-3.5 w-3.5" /> Ingredients
             </h4>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {item.ingredients.map((ing) => (
                 <span
                   key={ing}
-                  className="rounded-full border border-violet-100 bg-violet-50/60 px-2.5 py-1 text-xs text-[#6b6480]"
+                  className="rounded-full border border-background-light bg-primary-accent/60 px-2.5 py-1 text-xs text-[#6F6D6D]"
                 >
                   {ing}
                 </span>
@@ -79,7 +79,7 @@ export default function ItemSheet({ item, accent, gradient, onClose, onAdd }: Pr
           </div>
 
           <div className="mt-4">
-            <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#8a82a0]">
+            <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#6F6D6D]">
               <AlertTriangle className="h-3.5 w-3.5" /> Allergies
             </h4>
             {item.allergens.length > 0 ? (
@@ -94,25 +94,25 @@ export default function ItemSheet({ item, accent, gradient, onClose, onAdd }: Pr
                 ))}
               </div>
             ) : (
-              <p className="mt-2 text-xs text-[#8a82a0]">
+              <p className="mt-2 text-xs text-[#6F6D6D]">
                 No common allergens listed. Ask the kitchen if you have a severe allergy.
               </p>
             )}
           </div>
 
-          <div className="mt-5 flex items-center justify-between rounded-2xl bg-[#faf7fe] p-3">
+          <div className="mt-5 flex items-center justify-between rounded-2xl bg-[#F8F8F8] p-3">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setQty((q) => Math.max(1, q - 1))}
-                className="btn-press flex h-9 w-9 items-center justify-center rounded-full border border-violet-200 bg-white text-[#1c1533]"
+                className="btn-press flex h-9 w-9 items-center justify-center rounded-full border border-background-light bg-white text-[#0F0F0F]"
                 aria-label="Decrease quantity"
               >
                 <Minus className="h-4 w-4" />
               </button>
-              <span className="font-display w-6 text-center text-lg font-bold text-[#1c1533]">{qty}</span>
+              <span className="font-display w-6 text-center text-lg font-bold text-[#0F0F0F]">{qty}</span>
               <button
                 onClick={() => setQty((q) => Math.min(20, q + 1))}
-                className="btn-press flex h-9 w-9 items-center justify-center rounded-full border border-violet-200 bg-white text-[#1c1533]"
+                className="btn-press flex h-9 w-9 items-center justify-center rounded-full border border-background-light bg-white text-[#0F0F0F]"
                 aria-label="Increase quantity"
               >
                 <Plus className="h-4 w-4" />
@@ -120,7 +120,7 @@ export default function ItemSheet({ item, accent, gradient, onClose, onAdd }: Pr
             </div>
             <div className="text-right">
               {item.deal && (
-                <div className="text-xs text-[#a49fbc] line-through">{formatNaira(item.price)}</div>
+                <div className="text-xs text-[#C8C8C8] line-through">{formatNaira(item.price)}</div>
               )}
               <div className="font-display text-lg font-bold" style={{ color: accent }}>
                 {formatNaira(price)}
@@ -129,7 +129,7 @@ export default function ItemSheet({ item, accent, gradient, onClose, onAdd }: Pr
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-violet-100 bg-white p-4" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
+        <div className="shrink-0 border-t border-background-light bg-white p-4" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
           <button
             onClick={() => onAdd(item, qty)}
             className="btn-press flex w-full items-center justify-center gap-2 rounded-full py-3.5 font-display text-base font-semibold text-white shadow-lg"

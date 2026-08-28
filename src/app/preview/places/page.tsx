@@ -22,13 +22,20 @@ import FacilityCard from "@/components/facility-card";
 import { PLACE_TYPES } from "@/constants";
 import Loader from "@/components/loader";
 import { useSearchParams } from "next/navigation";
-import { usePublicPlace } from "@/hooks/use-places";
+import { PublicFacility, usePublicPlace } from "@/hooks/use-places";
 import EmptyState from "@/components/empty-state";
 import { getOperatingHoursDisplay } from "@/lib/utils";
 
 function PlacesPageContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedFacility, setSelectedFacility] =
+    useState<PublicFacility | null>(null);
   const [page, setPage] = useState<"home" | "about">("home");
+
+  const openBooking = (facility?: PublicFacility) => {
+    setSelectedFacility(facility ?? null);
+    setIsModalOpen(true);
+  };
   const id = useSearchParams().get("id");
   const { place, isLoading: loading } = usePublicPlace(id);
   const posts: string[] = [];
@@ -172,7 +179,7 @@ function PlacesPageContent() {
                     facilityType={facility.facilityCategory}
                     accessType={facility.accessType || "N/A"}
                     price={facility.fees?.[0]?.amount ?? 0}
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={() => openBooking(facility)}
                   />
                 ))}
               </div>
@@ -374,10 +381,7 @@ function PlacesPageContent() {
             <h2 className="font-bold text-primary-text">From ₦200,000</h2>
             <p>Always Open</p>
           </div>
-          <Button
-            className="w-[150px] py-5"
-            onClick={() => setIsModalOpen(true)}
-          >
+          <Button className="w-[150px] py-5" onClick={() => openBooking()}>
             Book
           </Button>
         </div>
@@ -386,6 +390,7 @@ function PlacesPageContent() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         place={place}
+        facility={selectedFacility}
       />
     </section>
   );

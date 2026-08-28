@@ -22,10 +22,10 @@ export default function SectionTabs({ active, onChange }: Props) {
       <div
         role="tablist"
         aria-label="Sections"
-        className="relative grid w-full max-w-md grid-cols-3 rounded-full border border-violet-200 bg-white/70 p-1.5 shadow-[0_8px_30px_-14px_rgba(140,52,234,0.25)] backdrop-blur-xl"
+        className="relative grid w-full max-w-md grid-cols-3 rounded-full border border-background-light bg-white/70 p-1.5 shadow-[0_8px_30px_-14px_rgba(105,50,226,0.25)] backdrop-blur-xl"
       >
         <div
-          className="seg-pill absolute inset-y-1.5 left-1.5 w-[calc((100%-0.75rem)/3)] rounded-full bg-gradient-to-r from-[#8c34ea] to-[#af46e8] shadow-[0_8px_28px_-6px_rgba(140,52,234,0.65)]"
+          className="seg-pill absolute inset-y-1.5 left-1.5 w-[calc((100%-0.75rem)/3)] rounded-full bg-[#6932E2] shadow-[0_8px_28px_-6px_rgba(105,50,226,0.65)]"
           style={{ transform: `translateX(${activeIndex * 100}%)` }}
           aria-hidden="true"
         />
@@ -36,7 +36,7 @@ export default function SectionTabs({ active, onChange }: Props) {
             aria-selected={active === s.key}
             onClick={() => onChange(s.key)}
             className={`relative z-10 flex items-center justify-center gap-1.5 rounded-full py-2.5 text-sm font-semibold transition-colors duration-300 ${
-              active === s.key ? 'text-white' : 'text-[#6b6480] hover:text-[#1c1533]'
+              active === s.key ? 'text-white' : 'text-[#6F6D6D] hover:text-[#0F0F0F]'
             }`}
           >
             {ICONS[s.key]}

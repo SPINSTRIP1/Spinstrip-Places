@@ -133,9 +133,101 @@ export interface SinglePlace extends Omit<Place, "coverImage"> {
   };
 }
 
-export interface PublicPlace extends Omit<Place, "coverImage"> {
+/**
+ * A fee tier as returned by the public endpoints. `amount` arrives as a
+ * decimal string (e.g. "5000"), not a number, and `id` is what
+ * `POST /places/public/book` expects as `feeId`.
+ */
+export interface PublicFacilityFee {
+  id: string;
+  placeId: string;
+  facilityId: string;
+  name: string;
+  amount: string;
+  currency: string;
+  description: string | null;
+  isActive: boolean;
+}
+
+/**
+ * A facility as returned by the public endpoints. Differs from the
+ * merchant-side `Facility` in that fees are persisted rows (with ids) and
+ * images are URLs rather than `File`s.
+ */
+export interface PublicFacility {
+  id: string;
+  placeId: string;
+  name: string;
+  facilityCategory: string;
+  description: string;
+  images?: string[];
+  accessType?: "OPEN" | "PRICED";
+  isGated?: boolean;
+  redirectUrl?: string | null;
+  fees?: PublicFacilityFee[];
+}
+
+export interface PublicPlace extends Omit<Place, "coverImage" | "facilities"> {
   coverImage: string;
   images: string[];
+  facilities?: PublicFacility[];
+}
+
+/** Body accepted by `POST /places/public/book`. */
+export interface BookFacilityPayload {
+  placeId: string;
+  facilityId: string;
+  /** Omitted for free (OPEN) facilities. */
+  feeId?: string;
+  /** ISO 8601 date-time. */
+  checkInDate: string;
+  /** ISO 8601 date-time. */
+  checkOutDate: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  confirmEmail: string;
+  phone?: string;
+  marketingConsentPlace?: boolean;
+  marketingConsentNews?: boolean;
+  /** Required for paid facilities. */
+  paymentMethod?: PlacePaymentMethod;
+  callbackUrl?: string;
+  userId?: string;
+}
+
+export type PlacePaymentMethod = "PAYSTACK" | "LEDGER_BLOCK";
+
+export interface BookFacilityResponse {
+  status: string;
+  message: string;
+  data: {
+    id?: string;
+    bookingId?: string;
+    reference?: string;
+    status?: string;
+    totalAmount?: string | number;
+    email?: string;
+    payment?: {
+      authorizationUrl?: string;
+      accessCode?: string;
+      reference?: string;
+      provider?: string;
+    };
+    authorizationUrl?: string;
+  } | null;
+}
+
+/** Response of `GET /places/payments/verify/{reference}`. */
+export interface VerifyPlacePaymentResponse {
+  status: string;
+  message: string;
+  data: {
+    reference: string;
+    status: "COMPLETED" | "PENDING" | "FAILED";
+    bookingId?: string;
+    amount?: string | number;
+  } | null;
 }
 
 /**

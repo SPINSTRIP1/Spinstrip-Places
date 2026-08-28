@@ -7,7 +7,8 @@ interface FacilityCardProps {
   description: string;
   facilityType: string;
   accessType: string;
-  price: number;
+  /** Fees arrive from the API as decimal strings. */
+  price: number | string;
   onClick?: () => void;
 }
 
@@ -21,7 +22,7 @@ export default function FacilityCard({
   onClick,
 }: FacilityCardProps) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5 bg-[#F5F5F5] p-3 rounded-3xl shadow">
       <img
         src={imgUrl}
         alt={title}
@@ -46,7 +47,11 @@ export default function FacilityCard({
       </div>
       {onClick && (
         <div className="w-full flex items-center justify-center">
-          <Button className="w-[187px] py-5" onClick={onClick}>
+          <Button
+            size={"lg"}
+            className="w-[187px] rounded-3xl py-5"
+            onClick={onClick}
+          >
             Book
           </Button>
         </div>

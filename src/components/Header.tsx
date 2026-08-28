@@ -24,16 +24,17 @@ export default function Header() {
 
   return (
     <header
-      className={`site-header fixed inset-x-0 top-0 z-40 ${
+      className={`site-header fixed inset-x-0 top-0 z-40 flex w-full items-center justify-center px-2 pt-2 lg:px-4 ${
         hidden ? "header-hidden" : ""
-      } ${
-        scrolled
-          ? "border-b border-violet-100 bg-white/80 shadow-[0_4px_30px_-12px_rgba(140,52,234,0.18)] backdrop-blur-xl"
-          : "border-b border-transparent bg-transparent"
       }`}
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2.5">
+      {/* liquid-glass pill — same navbar treatment as spinstrip.com */}
+      <div
+        className={`liquid-glass relative mx-auto flex h-16 w-full max-w-6xl items-center justify-between rounded-3xl px-4 py-3 sm:px-6 ${
+          scrolled ? "shadow-[0_12px_40px_-18px_rgba(105,50,226,0.35)]" : ""
+        }`}
+      >
+        <Link href="/" className="relative z-10 flex items-center gap-2.5">
           <Image
             src="/logo.png"
             alt="SpinStrip"
@@ -43,16 +44,16 @@ export default function Header() {
             className="h-6 w-auto sm:h-7"
             draggable={false}
           />
-          <span className="rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-violet-600">
+          <span className="rounded-full border border-neutral-accent bg-primary-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-[#6932E2]">
             Business
           </span>
         </Link>
-        <nav className="flex items-center gap-3">
+        <nav className="relative z-10 flex items-center gap-3">
           <a
             href="https://spinstrip.com/"
             target="_blank"
             rel="noreferrer"
-            className="hidden text-sm font-medium text-[#6b6480] transition-colors hover:text-[#1c1533] sm:block"
+            className="hidden text-sm font-medium text-[#6F6D6D] transition-colors hover:text-[#0F0F0F] sm:block"
           >
             About SpinStrip
           </a>
@@ -60,7 +61,7 @@ export default function Header() {
             href="https://merchant.spinstrip.com/"
             target="_blank"
             rel="noreferrer"
-            className="btn-press group flex items-center gap-1.5 rounded-full bg-[#8c34ea] px-4 py-2 text-xs font-semibold text-white shadow-[0_8px_28px_-8px_rgba(140,52,234,0.7)] hover:bg-[#9b46f0] sm:text-sm"
+            className="btn-press group flex items-center gap-1.5 rounded-3xl bg-[#6932E2] px-4 py-2 text-xs font-bold text-white shadow-[0_8px_28px_-8px_rgba(105,50,226,0.7)] hover:bg-[#7C4BE8] sm:text-sm"
           >
             List your business
             <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />

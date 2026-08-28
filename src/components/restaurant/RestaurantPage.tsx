@@ -102,23 +102,23 @@ export default function RestaurantPage({ restaurant }: Props) {
   return (
     <div className="section-swap min-h-screen pb-32" key={restaurant.id}>
       {/* Top bar */}
-      <header className="fixed inset-x-0 top-0 z-40 border-b border-violet-100 bg-white/80 backdrop-blur-xl">
+      <header className="fixed inset-x-0 top-0 z-40 border-b border-background-light bg-white/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link
             href="/"
-            className="btn-press flex items-center gap-1.5 rounded-full border border-violet-200 bg-white px-3.5 py-2 text-sm font-semibold text-[#1c1533] hover:border-violet-400"
+            className="btn-press flex items-center gap-1.5 rounded-full border border-background-light bg-white px-3.5 py-2 text-sm font-semibold text-[#0F0F0F] hover:border-primary-light"
           >
             <ArrowLeft className="h-4 w-4" /> Back
           </Link>
           <div className="flex min-w-0 items-center gap-2">
             <RestaurantLogo monogram={restaurant.monogram} bg={restaurant.logoBg} size={32} className="rounded-xl" />
-            <span className="truncate font-display text-sm font-bold text-[#1c1533] sm:text-base">
+            <span className="truncate font-display text-sm font-bold text-[#0F0F0F] sm:text-base">
               {restaurant.name}
             </span>
           </div>
           <button
             onClick={() => setCartOpen(true)}
-            className="btn-press relative flex h-10 w-10 items-center justify-center rounded-full border border-violet-200 bg-white text-[#1c1533] hover:border-violet-400"
+            className="btn-press relative flex h-10 w-10 items-center justify-center rounded-full border border-background-light bg-white text-[#0F0F0F] hover:border-primary-light"
             aria-label="Open cart"
           >
             <ShoppingBag className="h-5 w-5" />
@@ -147,32 +147,32 @@ export default function RestaurantPage({ restaurant }: Props) {
           />
           <div
             className="absolute inset-0"
-            style={{ background: `linear-gradient(to top, rgba(28,21,51,0.72), rgba(28,21,51,0.08) 60%), linear-gradient(135deg, ${restaurant.accent}33, transparent 55%)` }}
+            style={{ background: `linear-gradient(to top, rgba(15,15,15,0.72), rgba(15,15,15,0.08) 60%), linear-gradient(135deg, ${restaurant.accent}33, transparent 55%)` }}
           />
         </div>
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="relative -mt-14 rounded-3xl border border-violet-100 bg-white/90 p-5 shadow-[0_20px_50px_-20px_rgba(140,52,234,0.35)] backdrop-blur-xl sm:-mt-16 sm:p-6">
+          <div className="relative -mt-14 rounded-3xl border border-background-light bg-white/90 p-5 shadow-[0_20px_50px_-20px_rgba(105,50,226,0.35)] backdrop-blur-xl sm:-mt-16 sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <RestaurantLogo monogram={restaurant.monogram} bg={restaurant.logoBg} size={72} className="shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <h1 className="font-display text-2xl font-bold text-[#1c1533]">{restaurant.name}</h1>
-                  <span className="flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-700">
-                    <Star className="h-3 w-3 fill-[#8c34ea] text-[#8c34ea]" />
+                  <h1 className="font-display text-2xl font-bold text-[#0F0F0F]">{restaurant.name}</h1>
+                  <span className="flex items-center gap-1 rounded-full bg-primary-accent px-2 py-0.5 text-xs font-semibold text-[#6932E2]">
+                    <Star className="h-3 w-3 fill-[#6932E2] text-[#6932E2]" />
                     {restaurant.rating.toFixed(1)}
-                    <span className="font-normal text-[#a49fbc]">({restaurant.reviews.toLocaleString()})</span>
+                    <span className="font-normal text-[#6F6D6D]">({restaurant.reviews.toLocaleString()})</span>
                   </span>
                 </div>
                 <p className="mt-0.5 text-xs font-medium" style={{ color: restaurant.accent }}>{restaurant.handle}</p>
-                <p className="mt-1.5 text-sm text-[#6b6480]">{restaurant.tagline}</p>
-                <p className="mt-1.5 flex items-center gap-1 text-xs text-[#8a82a0]">
+                <p className="mt-1.5 text-sm text-[#6F6D6D]">{restaurant.tagline}</p>
+                <p className="mt-1.5 flex items-center gap-1 text-xs text-[#6F6D6D]">
                   <MapPin className="h-3.5 w-3.5" style={{ color: restaurant.accent }} />
                   {restaurant.location}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2 self-start sm:self-center">
                 <Image src="/logo.png" alt="SpinStrip" width={1671} height={512} className="h-4 w-auto opacity-70" />
-                <span className="text-[10px] font-medium uppercase tracking-widest text-[#a49fbc]">on SpinStrip</span>
+                <span className="text-[10px] font-medium uppercase tracking-widest text-[#6F6D6D]">on SpinStrip</span>
               </div>
             </div>
           </div>
@@ -181,7 +181,7 @@ export default function RestaurantPage({ restaurant }: Props) {
 
       {/* Search */}
       <div className="mx-auto mt-6 max-w-6xl px-4 sm:px-6">
-        <label className="search-shell flex items-center gap-3 rounded-2xl border border-violet-200 bg-white/80 px-4 py-3.5 shadow-sm backdrop-blur-xl">
+        <label className="search-shell flex items-center gap-3 rounded-2xl border border-background-light bg-white/80 px-4 py-3.5 shadow-sm backdrop-blur-xl">
           <Search className="h-5 w-5 shrink-0" style={{ color: restaurant.accent }} />
           <input
             type="search"
@@ -189,7 +189,7 @@ export default function RestaurantPage({ restaurant }: Props) {
             onChange={(e) => setQuery(e.target.value)}
             placeholder={`Search the ${restaurant.name} menu…`}
             enterKeyHint="search"
-            className="w-full bg-transparent text-base text-[#1c1533] outline-none placeholder:text-[#a49fbc]"
+            className="w-full bg-transparent text-base text-[#0F0F0F] outline-none placeholder:text-[#C8C8C8]"
           />
         </label>
       </div>
@@ -199,14 +199,14 @@ export default function RestaurantPage({ restaurant }: Props) {
         <section className="mx-auto mt-8 max-w-6xl">
           <div className="flex items-center gap-2 px-4 sm:px-6">
             <BadgePercent className="h-5 w-5" style={{ color: restaurant.accent }} />
-            <h2 className="font-display text-lg font-bold text-[#1c1533]">Deals & discounts</h2>
+            <h2 className="font-display text-lg font-bold text-[#0F0F0F]">Deals & discounts</h2>
           </div>
           <div className="chip-rail mt-3 flex gap-3 overflow-x-auto px-4 pb-2 sm:px-6">
             {deals.map((item) => (
               <button
                 key={item.id}
                 onClick={() => setOpenItem(item)}
-                className="listing-card group flex w-64 shrink-0 items-center gap-3 rounded-3xl border border-violet-100 bg-white/90 p-3 text-left backdrop-blur-md"
+                className="listing-card group flex w-64 shrink-0 items-center gap-3 rounded-3xl border border-background-light bg-white/90 p-3 text-left backdrop-blur-md"
               >
                 <Image
                   src={item.image}
@@ -222,10 +222,10 @@ export default function RestaurantPage({ restaurant }: Props) {
                   >
                     {item.deal!.percent}% OFF
                   </span>
-                  <p className="mt-1 truncate text-sm font-semibold text-[#1c1533]">{item.name}</p>
+                  <p className="mt-1 truncate text-sm font-semibold text-[#0F0F0F]">{item.name}</p>
                   <p className="text-xs">
                     <span className="font-bold" style={{ color: restaurant.accent }}>{formatNaira(discounted(item))}</span>
-                    {' '}<span className="text-[#a49fbc] line-through">{formatNaira(item.price)}</span>
+                    {' '}<span className="text-[#C8C8C8] line-through">{formatNaira(item.price)}</span>
                   </p>
                 </div>
               </button>
@@ -243,7 +243,7 @@ export default function RestaurantPage({ restaurant }: Props) {
             className={`chip shrink-0 rounded-full border px-4 py-2 text-sm font-medium ${
               category === c
                 ? 'chip-active border-transparent text-white'
-                : 'border-violet-200 bg-white/70 text-[#6b6480] hover:text-[#1c1533]'
+                : 'border-background-light bg-white/70 text-[#6F6D6D] hover:text-[#0F0F0F]'
             }`}
             style={category === c ? { background: restaurant.accent } : undefined}
           >
@@ -268,10 +268,10 @@ export default function RestaurantPage({ restaurant }: Props) {
             ))}
           </div>
         ) : (
-          <div className="section-swap flex flex-col items-center gap-3 rounded-3xl border border-dashed border-violet-300 bg-white/60 py-16 text-center">
-            <SearchX className="h-8 w-8 text-violet-400" />
-            <p className="font-display text-lg font-semibold text-[#1c1533]">No dishes found</p>
-            <p className="max-w-xs text-sm text-[#8a82a0]">Try another keyword or a different category.</p>
+          <div className="section-swap flex flex-col items-center gap-3 rounded-3xl border border-dashed border-neutral-accent bg-white/60 py-16 text-center">
+            <SearchX className="h-8 w-8 text-primary-light" />
+            <p className="font-display text-lg font-semibold text-[#0F0F0F]">No dishes found</p>
+            <p className="max-w-xs text-sm text-[#6F6D6D]">Try another keyword or a different category.</p>
             <button
               onClick={() => { setQuery(''); setCategory('All') }}
               className="btn-press mt-2 rounded-full px-5 py-2 text-sm font-semibold text-white"
@@ -303,7 +303,7 @@ export default function RestaurantPage({ restaurant }: Props) {
       {/* Toast */}
       {toast && (
         <div className="fixed left-1/2 top-20 z-50 -translate-x-1/2">
-          <div className="rise-in flex items-center gap-2 rounded-full bg-[#1c1533] px-4 py-2.5 text-sm font-medium text-white shadow-xl">
+          <div className="rise-in flex items-center gap-2 rounded-full bg-[#0F0F0F] px-4 py-2.5 text-sm font-medium text-white shadow-xl">
             <ShoppingBag className="h-4 w-4" style={{ color: restaurant.accent }} />
             {toast}
           </div>

@@ -7,10 +7,22 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-inter)', 'Inter', '-apple-system', 'Segoe UI', 'sans-serif'],
-        display: ['var(--font-sora)', 'Sora', 'Inter', '-apple-system', 'sans-serif'],
+        sans: ['"SF Pro Display"', 'system-ui', 'sans-serif'],
+        display: ['"SF Pro Display"', 'system-ui', 'sans-serif'],
+        'sf-pro': ['"SF Pro Display"', 'system-ui', 'sans-serif'],
+      },
+      fontSize: {
+        xxs: '0.625rem',
       },
       colors: {
+        // Brand palette, named as in SpinstripWebsite
+        'primary-accent': '#EBE2FF',
+        'primary-light': '#9E76F8',
+        'primary-tint': '#CCBAF5',
+        'primary-text': '#0F0F0F',
+        'secondary-text': '#6F6D6D',
+        'background-light': '#E0E0E0',
+        'neutral-accent': '#C8C8C8',
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',

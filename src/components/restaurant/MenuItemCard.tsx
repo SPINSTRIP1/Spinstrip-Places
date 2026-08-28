@@ -16,7 +16,7 @@ export default function MenuItemCard({ item, accent, index, onOpen, onQuickAdd }
   const price = discounted(item)
   return (
     <article
-      className="listing-card card-in group cursor-pointer overflow-hidden rounded-3xl border border-violet-100 bg-white/90 backdrop-blur-md"
+      className="listing-card card-in group cursor-pointer overflow-hidden rounded-3xl border border-background-light bg-white/90 backdrop-blur-md"
       style={{ '--i': index } as React.CSSProperties}
       onClick={() => onOpen(item)}
     >
@@ -44,17 +44,17 @@ export default function MenuItemCard({ item, accent, index, onOpen, onQuickAdd }
         )}
       </div>
       <div className="p-4">
-        <h3 className="font-display text-base font-semibold leading-snug text-[#1c1533]">
+        <h3 className="font-display text-base font-semibold leading-snug text-[#0F0F0F]">
           {item.name}
         </h3>
-        <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-[#6b6480]">
+        <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-[#6F6D6D]">
           {item.description}
         </p>
         <div className="mt-3 flex items-center justify-between">
           <div className="flex items-baseline gap-2">
-            <span className="font-display text-lg font-bold text-[#1c1533]">{formatNaira(price)}</span>
+            <span className="font-display text-lg font-bold text-[#0F0F0F]">{formatNaira(price)}</span>
             {item.deal && (
-              <span className="text-xs text-[#a49fbc] line-through">{formatNaira(item.price)}</span>
+              <span className="text-xs text-[#C8C8C8] line-through">{formatNaira(item.price)}</span>
             )}
           </div>
           <button

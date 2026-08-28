@@ -18,7 +18,7 @@ export default function ListingCard({ listing, index, onOpen }: Props) {
 
   return (
     <article
-      className="listing-card card-in group cursor-pointer overflow-hidden rounded-3xl border border-violet-100 bg-white/90 backdrop-blur-md"
+      className="listing-card card-in group cursor-pointer overflow-hidden rounded-3xl border border-background-light bg-white/90 backdrop-blur-md"
       style={{ "--i": index } as React.CSSProperties}
       onClick={() => onOpen?.(listing)}
     >
@@ -34,11 +34,11 @@ export default function ListingCard({ listing, index, onOpen }: Props) {
           onError={() => setSrc(FALLBACK_IMAGE)}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
-        <span className="absolute left-3 top-3 rounded-full border border-white/40 bg-white/75 px-2.5 py-1 text-[11px] font-semibold text-violet-700 backdrop-blur-md">
+        <span className="absolute left-3 top-3 rounded-full border border-white/40 bg-white/75 px-2.5 py-1 text-[11px] font-semibold text-[#6932E2] backdrop-blur-md">
           {listing.category}
         </span>
         {listing.tag && (
-          <span className="absolute right-3 top-3 rounded-full bg-gradient-to-r from-[#8c34ea] to-[#af46e8] px-2.5 py-1 text-[11px] font-semibold text-white shadow-[0_6px_20px_-6px_rgba(140,52,234,0.8)]">
+          <span className="absolute right-3 top-3 rounded-full bg-[#6932E2] px-2.5 py-1 text-[11px] font-semibold text-white shadow-[0_6px_20px_-6px_rgba(105,50,226,0.8)]">
             {listing.tag}
           </span>
         )}
@@ -49,16 +49,16 @@ export default function ListingCard({ listing, index, onOpen }: Props) {
         )}
       </div>
       <div className="p-4 sm:p-5">
-        <h3 className="font-display text-base font-semibold leading-snug text-[#1c1533] sm:text-lg">
+        <h3 className="font-display text-base font-semibold leading-snug text-[#0F0F0F] sm:text-lg">
           {listing.name}
         </h3>
         {listing.location && (
-          <p className="mt-1 flex items-center gap-1 text-xs text-[#8c34ea]">
+          <p className="mt-1 flex items-center gap-1 text-xs text-[#6932E2]">
             <MapPin className="h-3.5 w-3.5" />
             {listing.location}
           </p>
         )}
-        <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[#6b6480]">
+        <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[#6F6D6D]">
           {listing.description}
         </p>
       </div>
