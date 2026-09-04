@@ -1,380 +1,390 @@
 "use client";
+
+import { Suspense, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import toast from "react-hot-toast";
 import {
   Calendar03Icon,
   Call02Icon,
   Globe02Icon,
   Location01Icon,
+  Mail01Icon,
+  SearchList01Icon,
   StarIcon,
+  Ticket01Icon,
+  UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import Image from "next/image";
-import { formatDateDisplay } from "@/utils";
-import ImpressionsStack from "@/components/impressions-stack";
+
 import MaxWidthWrapper from "@/components/max-width-wrapper";
-import { Button } from "@/components/ui/button";
 import ContainerWrapper from "@/components/container-wrapper";
-import { ChevronRight } from "lucide-react";
-import Link from "next/link";
+import DetailHero from "@/components/detail-hero";
+import BookingBar from "@/components/booking-bar";
+import SectionHeader from "@/components/section-header";
+import GalleryStrip from "@/components/gallery-strip";
+import PostsRail, { RailPost } from "@/components/posts-rail";
+import InfoRow from "@/components/info-row";
+import EmptyState from "@/components/empty-state";
+import MediaImage from "@/components/media-image";
+import Loader from "@/components/loader";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import CheckOutModal from "./_components/modals/checkout";
-import { Suspense, useState } from "react";
-import EmptyState from "@/components/empty-state";
-import { useSearchParams } from "next/navigation";
 import { usePublicEvent } from "@/hooks/use-events";
-import Loader from "@/components/loader";
+import { formatAmount, formatDateDisplay, formatEnumLabel } from "@/utils";
+import { cn } from "@/lib/utils";
+
+interface EventReview {
+  id: string;
+  name: string;
+  avatar?: string;
+  rating: number;
+  date: string;
+  body: string;
+}
+
+function ReviewComposer() {
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+
+  const canSubmit = rating > 0 && comment.trim().length > 0;
+
+  return (
+    <div className="rounded-3xl border border-background-light bg-white p-4">
+      <h3 className="text-sm font-bold text-primary-text">Review this event</h3>
+      <p className="mt-1 text-sm text-secondary-text">
+        Rate your experience and tell others what it was like.
+      </p>
+
+      <div className="mt-3 flex items-center gap-x-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            aria-label={`Rate ${star} star${star === 1 ? "" : "s"}`}
+            onClick={() => setRating(star)}
+            className="btn-press rounded-full p-1"
+          >
+            <HugeiconsIcon
+              icon={StarIcon}
+              size={24}
+              color={star <= rating ? "#9E76F8" : "#C8C8C8"}
+              fill={star <= rating ? "#9E76F8" : "#C8C8C8"}
+            />
+          </button>
+        ))}
+      </div>
+
+      <Textarea
+        value={comment}
+        onChange={(event) => setComment(event.target.value)}
+        placeholder="Share your thoughts on this event..."
+        className="my-4 border-background-light bg-background"
+        rows={5}
+      />
+      <Button
+        disabled={!canSubmit}
+        onClick={() => {
+          toast.success("Thanks for the feedback — reviews go live soon.");
+          setRating(0);
+          setComment("");
+        }}
+      >
+        Submit review
+      </Button>
+    </div>
+  );
+}
 
 function EventsPageContent() {
-  const posts: string[] = [];
-  const reviews: string[] = [];
+  const posts: RailPost[] = [];
+  const reviews: EventReview[] = [];
   const [isModalOpen, setIsModalOpen] = useState(false);
   const id = useSearchParams().get("id");
   const { event, isLoading: loading } = usePublicEvent(id);
 
   if (loading) return <Loader />;
-  if (!event) return <p>No event found.</p>;
+
+  if (!event) {
+    return (
+      <MaxWidthWrapper className="flex min-h-[60vh] items-center justify-center">
+        <EmptyState
+          icon={<HugeiconsIcon icon={SearchList01Icon} size={26} />}
+          title="Event not found"
+          description="This event may have been unpublished, or the link you followed is out of date."
+          action={
+            <Button asChild size="lg">
+              <Link href="/">Browse events</Link>
+            </Button>
+          }
+        />
+      </MaxWidthWrapper>
+    );
+  }
+
+  const tiers = event.ticketTiers ?? [];
+  const prices = tiers.map((tier) => tier.price).filter((p) => p >= 0);
+  const lowestPrice = prices.length ? Math.min(...prices) : 0;
+  const priceLabel = !tiers.length
+    ? "Free entry"
+    : lowestPrice > 0
+      ? `From ${formatAmount(lowestPrice)}`
+      : "Free";
+
+  const startsAt = new Date(event.startDate).toLocaleString("en-US", {
+    day: "numeric",
+    month: "long",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  const openCheckout = () => setIsModalOpen(true);
 
   return (
-    <section>
-      <MaxWidthWrapper className="space-y-4">
-        <div className="w-full h-[560px]">
-          <img
-            src={event?.images?.[0] || ""}
-            alt={event.name}
-            width={1200}
-            height={560}
-            className="w-full h-full object-cover rounded-2xl"
-          />
-        </div>
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-sm lg:text-[58px] leading-[100%] text-black mt-5 font-medium">
-              {event.name}
-            </h2>
+    <section className="pb-28 lg:pb-6">
+      <MaxWidthWrapper className="space-y-10">
+        <DetailHero
+          image={event.images?.[0]}
+          title={event.name}
+          eyebrow={formatEnumLabel(event.frequency) || "Event"}
+          impressions={event.totalImpressions ?? 0}
+          metas={[
+            {
+              icon: Location01Icon,
+              label: [event.city, event.state].filter(Boolean).join(", "),
+            },
+            {
+              icon: Calendar03Icon,
+              label: formatDateDisplay(event.startDate),
+            },
+            ...(event.expectedGuests
+              ? [
+                  {
+                    icon: UserMultipleIcon,
+                    label: `${event.expectedGuests.toLocaleString()} expected`,
+                  },
+                ]
+              : []),
+          ]}
+        />
 
-            <button className="flex mb-3 mt-2 items-center bg-primary gap-x-0.5 rounded-xl px-2.5 py-1.5">
-              <Image
-                src={"/logo-mark.svg"}
-                alt={event.name}
-                width={40}
-                height={40}
-                className="w-5 h-5 object-contain"
-              />
-              <p className="text-sm text-white">Follow</p>
-            </button>
+        <BookingBar
+          price={priceLabel}
+          caption={`Starts ${startsAt}`}
+          ctaLabel="Reserve a spot"
+          onCta={openCheckout}
+        />
 
-            <div className="flex items-center gap-x-3">
-              <div className="flex items-center gap-x-2">
-                <HugeiconsIcon
-                  icon={Location01Icon}
-                  size={24}
-                  color="#6F6D6D"
-                />
-                <p className="text-sm">
-                  {event.city}, {event.state}
-                </p>
-              </div>
-              <div className="flex items-center gap-x-2">
-                <HugeiconsIcon
-                  icon={Calendar03Icon}
-                  size={24}
-                  color="#6F6D6D"
-                />
-                <p className="text-sm">{formatDateDisplay(event.startDate)}</p>
-              </div>
-              <ImpressionsStack impressions={event.totalImpressions ?? 0} />
-            </div>
-          </div>
-          <div className="flex bg-primary-accent p-3 gap-x-5 items-center rounded-3xl">
-            <div>
-              <h2 className="font-bold text-primary-text">
-                {event.ticketTiers.length > 0
-                  ? `From ₦${Math.min(...event.ticketTiers.map((t) => t.price)).toLocaleString()}`
-                  : "Free"}
-              </h2>
-              <p>
-                {new Date(event.startDate).toLocaleString("en-US", {
-                  hour: "numeric",
-                  minute: "2-digit",
-                  hour12: true,
-                  timeZoneName: "short",
-                  day: "numeric",
-                  month: "long",
-                })}
-              </p>
-            </div>
-            <Button onClick={() => setIsModalOpen(true)}>Reserve a Spot</Button>
-          </div>
-        </div>
-        <div>
-          <h1 className="font-bold text-primary-text">Overview</h1>
-          <p className="whitespace-pre-line">{event.description}</p>
-        </div>
-        <div className="space-y-4">
-          <h1 className="font-bold text-primary-text">Gallery</h1>
-          <div className="flex gap-4 overflow-x-auto">
-            {event.images?.map((image, index) => (
-              <div
-                key={index}
-                className="min-w-[253px]  max-w-[253px] flex-1 h-[206px]"
-              >
-                <img
-                  src={image}
-                  alt={event.name}
-                  width={400}
-                  height={600}
-                  className="w-full h-full object-cover rounded-2xl"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-        <ContainerWrapper>
-          <div className="flex items-center mb-4 justify-between">
-            <div className="flex items-center gap-x-2">
-              <HugeiconsIcon icon={Location01Icon} size={24} color="#6F6D6D" />
-              <div>
-                <p className="text-sm font-bold text-primary-text">Address</p>
-                <p className="text-sm">{event.location}</p>
-              </div>
-            </div>
-            <ChevronRight />
-          </div>
-          <div className="flex items-center mb-4 justify-between">
-            <div className="flex items-center gap-x-2">
-              <HugeiconsIcon icon={Call02Icon} size={24} color="#6F6D6D" />
-              <div>
-                <p className="text-sm font-bold text-primary-text">Call</p>
-                <p className="text-sm">{event.contactPhone}</p>
-              </div>
-            </div>
-            <ChevronRight />
-          </div>
-          <div className="flex items-center mb-4 justify-between">
-            <div className="flex items-center gap-x-2">
-              <HugeiconsIcon icon={Globe02Icon} size={24} color="#6F6D6D" />
-              <div>
-                <p className="text-sm font-bold text-primary-text">Email</p>
-                <p className="text-sm">{event.contactEmail}</p>
-              </div>
-            </div>
-            <ChevronRight />
-          </div>
-          <div className="w-full border rounded-lg overflow-hidden border-neutral-accent flex-1 h-[183px]">
-            <iframe
-              src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(event.location)}`}
-              width="100%"
-              height="100%"
-              style={{ border: 0 }}
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
+        {/* Overview */}
+        <section className="space-y-3">
+          <SectionHeader title="Overview" />
+          {event.description ? (
+            <p className="whitespace-pre-line text-sm leading-relaxed text-secondary-text">
+              {event.description}
+            </p>
+          ) : (
+            <EmptyState
+              variant="inline"
+              title="No description yet"
+              description="The organiser hasn't added details about this event."
             />
-          </div>
-        </ContainerWrapper>
-        {/* <ContainerWrapper>
-          <div className="flex items-center mb-4 justify-between">
-            <div className="space-y-3">
-              <div>
-                <p className="text-lg font-bold text-primary-text">
-                 {event.name}
-                </p>
-                <div className="flex items-center gap-x-1">
-                  <div className="flex items-center gap-x-0.5">
-                    <HugeiconsIcon
-                      icon={StarIcon}
-                      size={14}
-                      color="#9E76F8"
-                      fill="#9E76F8"
-                    />
-                    <span className="text-sm font-bold text-primary-text">
-                      3
-                    </span>
-                  </div>
-                  <p className="text-sm">on SpinStrip ({reviews.length} reviews)</p>
-                </div>
-                <p className="text-sm">Media/Entertainment Company</p>
-              </div>
+          )}
+        </section>
 
-              <div className="flex items-center gap-x-2">
-                <div>
-                  <p className="text-sm font-bold text-primary-text">
-                    About 54.7 KM from you
-                  </p>
-                  <p className="text-sm">1132, Lekki, Lagos, Nigeria</p>
-                </div>
-              </div>
-              <Button variant={"secondary"} className="px-3 py-px">
-                Suggest Edit
-              </Button>
+        {/* Tickets */}
+        <section className="space-y-4">
+          <SectionHeader
+            title="Tickets"
+            subtitle={
+              tiers.length
+                ? `Sales close on ${formatDateDisplay(event.startDate)}`
+                : undefined
+            }
+            action={
+              tiers.length ? (
+                <Button onClick={openCheckout} className="btn-press shrink-0">
+                  Get tickets
+                </Button>
+              ) : undefined
+            }
+          />
+          {tiers.length === 0 ? (
+            <EmptyState
+              icon={<HugeiconsIcon icon={Ticket01Icon} size={26} />}
+              title="No tickets on sale"
+              description="The organiser hasn't published ticket tiers for this event yet. Follow the event to hear when they go live."
+            />
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {tiers.map((tier) => {
+                const soldOut = tier.quantityAvailable <= 0;
+                return (
+                  <button
+                    key={tier.id}
+                    type="button"
+                    onClick={openCheckout}
+                    disabled={soldOut}
+                    className={cn(
+                      "listing-card flex flex-col items-start gap-y-1 rounded-3xl border border-background-light bg-white p-4 text-left",
+                      soldOut && "cursor-not-allowed opacity-60",
+                    )}
+                  >
+                    <span className="text-sm font-bold text-primary-text">
+                      {tier.name}
+                    </span>
+                    {tier.description && (
+                      <span className="line-clamp-2 text-xs text-secondary-text">
+                        {tier.description}
+                      </span>
+                    )}
+                    <span className="mt-2 text-lg font-bold text-primary">
+                      {tier.price > 0 ? formatAmount(tier.price) : "Free"}
+                    </span>
+                    <span className="text-xs text-secondary-text">
+                      {soldOut
+                        ? "Sold out"
+                        : `${tier.quantityAvailable.toLocaleString()} left`}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <div className="bg-primary-accent rounded-full p-3">
-              <HugeiconsIcon
-                icon={Navigation03Icon}
-                size={24}
-                color="#6932E2"
+          )}
+        </section>
+
+        <GalleryStrip
+          images={event.images}
+          alt={event.name}
+          emptyDescription="The organiser hasn't uploaded photos for this event yet."
+        />
+
+        {/* Location & contact */}
+        <ContainerWrapper className="space-y-2">
+          <SectionHeader title="Location & contact" className="mb-2" />
+          <InfoRow
+            icon={Location01Icon}
+            label="Address"
+            value={event.location}
+            href={
+              event.location
+                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`
+                : undefined
+            }
+          />
+          <InfoRow
+            icon={Call02Icon}
+            label="Call"
+            value={event.contactPhone}
+            href={event.contactPhone ? `tel:${event.contactPhone}` : undefined}
+          />
+          <InfoRow
+            icon={Mail01Icon}
+            label="Email"
+            value={event.contactEmail}
+            href={
+              event.contactEmail ? `mailto:${event.contactEmail}` : undefined
+            }
+          />
+          {event.location ? (
+            <div className="mt-3 h-[200px] overflow-hidden rounded-2xl border border-background-light">
+              <iframe
+                title={`Map showing ${event.location}`}
+                src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(event.location)}`}
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
               />
             </div>
-          </div>
-        </ContainerWrapper> */}
-        <ContainerWrapper>
-          <div className="flex items-center justify-between">
-            <h1 className="font-bold text-primary-text">
-              Reviews({reviews.length})
-            </h1>
-            <Link href={"/"} className="flex text-xs items-center gap-x-1">
-              {" "}
-              See More <ChevronRight size={16} />
-            </Link>
-          </div>
-          <div className="mt-4">
-            {reviews && reviews.length > 0 ? (
-              reviews.map((_, i) => (
-                <div key={i} className="mb-3">
-                  <div className="flex items-center">
-                    <Image
-                      src={"/avatar.jpg"}
-                      alt={"Reviewer"}
-                      width={60}
-                      height={60}
-                      className="w-10 h-10 object-cover rounded-full"
-                    />
+          ) : (
+            <EmptyState
+              variant="inline"
+              icon={<HugeiconsIcon icon={Globe02Icon} size={22} />}
+              title="No map available"
+              description="This event hasn't shared a venue address yet."
+            />
+          )}
+        </ContainerWrapper>
 
-                    <div className="ml-3">
-                      <p className="font-bold text-primary-text">Jane Doe</p>
-                      <div className="flex items-center gap-x-1">
+        {/* Reviews */}
+        <ContainerWrapper className="space-y-4">
+          <SectionHeader
+            title="Reviews"
+            badge={reviews.length ? `${reviews.length}` : undefined}
+            href={reviews.length ? "/" : undefined}
+          />
+          {reviews.length === 0 ? (
+            <EmptyState
+              icon={<HugeiconsIcon icon={StarIcon} size={26} />}
+              title="No reviews yet"
+              description="Be the first to share your experience of this event."
+            />
+          ) : (
+            <div className="space-y-5">
+              {reviews.map((review) => (
+                <article key={review.id} className="space-y-2">
+                  <div className="flex items-center gap-x-3">
+                    <MediaImage
+                      src={review.avatar}
+                      alt={review.name}
+                      className="h-10 w-10 shrink-0 rounded-full"
+                    />
+                    <div>
+                      <p className="text-sm font-bold text-primary-text">
+                        {review.name}
+                      </p>
+                      <div className="flex items-center gap-x-2">
                         <div className="flex items-center gap-x-0.5">
-                          {[1, 2, 3, 4, 5].map((_, index) => (
+                          {[1, 2, 3, 4, 5].map((star) => (
                             <HugeiconsIcon
-                              key={index}
+                              key={star}
                               icon={StarIcon}
-                              size={14}
-                              color={index < 4 ? "#9E76F8" : "#C8C8C8"}
-                              fill={index < 4 ? "#9E76F8" : "#C8C8C8"}
+                              size={13}
+                              color={
+                                star <= review.rating ? "#9E76F8" : "#C8C8C8"
+                              }
+                              fill={
+                                star <= review.rating ? "#9E76F8" : "#C8C8C8"
+                              }
                             />
                           ))}
                         </div>
-                        <p className="text-sm">Jun 10, 2024</p>
+                        <p className="text-xs text-secondary-text">
+                          {review.date}
+                        </p>
                       </div>
                     </div>
                   </div>
-                  <p className="mt-2 text-sm">
-                    Amazing event! Had a great time learning and networking.
-                    Highly recommend to anyone interested in tech.
+                  <p className="text-sm leading-relaxed text-secondary-text">
+                    {review.body}
                   </p>
-                </div>
-              ))
-            ) : (
-              <EmptyState
-                icon={
-                  <HugeiconsIcon icon={StarIcon} size={32} color="#6932E2" />
-                }
-                title="No Reviews Yet"
-                description="Be the first to share your experience at this event."
-              />
-            )}
-          </div>
-          <div className="mt-4">
-            <h2 className="font-bold text-primary-text mb-1">
-              Review this event
-            </h2>
-            <div className="flex items-center">
-              <Image
-                src={"/avatar.jpg"}
-                alt={"Reviewer"}
-                width={60}
-                height={60}
-                className="w-10 h-10 object-cover rounded-full"
-              />
-
-              <div className="flex items-center ml-3 gap-x-0.5">
-                {[1, 2, 3, 4, 5].map((_, index) => (
-                  <HugeiconsIcon
-                    key={index}
-                    icon={StarIcon}
-                    size={20}
-                    color={"#C8C8C8"}
-                    fill={"#C8C8C8"}
-                  />
-                ))}
-              </div>
+                </article>
+              ))}
             </div>
-            <Textarea
-              placeholder="Share your thoughts on this event..."
-              className="bg-[#E0E0E0] border-none my-5"
-              rows={6}
-            />
-            <Button>Submit</Button>
-          </div>
+          )}
+          <ReviewComposer />
         </ContainerWrapper>
+
         <ContainerWrapper>
-          <div className="flex mb-3 justify-between w-full items-center">
-            <h2 className="font-bold text-primary-text">Posts</h2>
-            <Link href={"/"} className="flex text-xs items-center gap-x-1">
-              See More <ChevronRight size={16} />
-            </Link>
-          </div>
-          <div className="flex overflow-x-auto gap-x-3">
-            {posts && posts.length > 0 ? (
-              posts.map((_, i) => (
-                <div
-                  key={i}
-                  className="flex min-w-[168px] max-w-[168px] flex-col gap-y-2"
-                >
-                  <Image
-                    src={"/events/1.jpg"}
-                    alt={"Post 1"}
-                    width={400}
-                    height={400}
-                    className="rounded-lg w-full h-[206px] object-cover"
-                  />
-
-                  <p className="text-xs text-primary-text">
-                    A day in my life as a lifestyle influencer in lagos
-                  </p>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-x-1">
-                      <Image
-                        src={"/avatar.jpg"}
-                        alt={"Reviewer"}
-                        width={60}
-                        height={60}
-                        className="w-5 h-5 object-cover rounded-full"
-                      />
-                      <p className="text-xxs">Jane Doe</p>
-                    </div>
-
-                    <div className="ml-3">
-                      <div className="flex items-center gap-x-1">
-                        <HugeiconsIcon
-                          icon={StarIcon}
-                          size={14}
-                          color={"#9E76F8"}
-                          fill={"#9E76F8"}
-                        />
-
-                        <p className="text-xxs">345 Likes</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <EmptyState
-                icon={
-                  <HugeiconsIcon
-                    icon={Calendar03Icon}
-                    size={32}
-                    color="#6932E2"
-                  />
-                }
-                title="No Posts Yet"
-                description="There are no posts related to this event at the moment."
-              />
-            )}
-          </div>
+          <PostsRail
+            posts={posts}
+            emptyDescription="No posts have been shared about this event yet."
+          />
         </ContainerWrapper>
       </MaxWidthWrapper>
+
+      <BookingBar
+        variant="sticky"
+        price={priceLabel}
+        caption={`Starts ${startsAt}`}
+        ctaLabel="Reserve"
+        onCta={openCheckout}
+      />
+
       <CheckOutModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

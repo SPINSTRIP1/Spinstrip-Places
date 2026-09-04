@@ -1,64 +1,70 @@
-import Image from "next/image";
-
-const avatars = [
-  "/avatars/1.jpg",
-  "/avatars/2.jpg",
-  "/avatars/3.jpg",
-  "/avatars/4.jpg",
-];
+import { cn } from "@/lib/utils";
 
 interface ImpressionsStackProps {
   impressions: number;
+  /** `light` sits on photography, `default` on the page background. */
+  tone?: "default" | "light";
 }
 
+/** Brand tints for the stacked viewer bubbles. */
+const BUBBLE_TINTS = ["#6932E2", "#9E76F8", "#CCBAF5", "#EBE2FF"];
+
+const formatCount = (count: number) => {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}m`;
+  if (count >= 1000) return `${(count / 1000).toFixed(count >= 10_000 ? 0 : 1)}k`;
+  return count.toString();
+};
+
+/**
+ * Compact "N people viewed this" indicator. The bubbles are brand tints
+ * rather than avatars — the public endpoints return a count, not the
+ * viewers, so showing stock faces would be inventing people.
+ */
 export default function ImpressionsStack({
   impressions,
+  tone = "default",
 }: ImpressionsStackProps) {
-  if (impressions === 0) {
+  const shell =
+    tone === "light"
+      ? "border-white/30 bg-white/15 text-white backdrop-blur-md"
+      : "border-background-light bg-white/80 text-secondary-text backdrop-blur-sm";
+
+  if (!impressions || impressions <= 0) {
     return (
-      <div className="bg-background-light w-fit rounded-3xl px-1.5 py-1">
-        <p className="text-[10px] text-secondary-text">No views yet</p>
-      </div>
+      <span
+        className={cn(
+          "inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium",
+          shell,
+        )}
+      >
+        No views yet
+      </span>
     );
   }
 
-  const displayCount = Math.min(impressions, 4);
-  const remaining = impressions - 4;
-
-  const formatRemaining = (count: number) => {
-    if (count >= 1000) {
-      return `${(count / 1000).toFixed(count >= 10000 ? 0 : 1)}k`;
-    }
-    return count.toString();
-  };
+  const bubbles = BUBBLE_TINTS.slice(0, Math.min(impressions, 4));
 
   return (
-    <div className="flex items-center gap-x-2">
-      <div className="flex items-center">
-        {avatars.slice(0, displayCount).map((avatar, index) => (
-          <div
-            key={index}
-            className={`border-2 rounded-full overflow-hidden border-white ${
-              index > 0 ? "-ml-1" : ""
-            }`}
-          >
-            <Image
-              src={avatar}
-              alt="avatar"
-              width={40}
-              height={40}
-              className="w-5 h-5 object-cover"
-            />
-          </div>
-        ))}
-      </div>
-      {remaining > 0 && (
-        <div className="bg-background-light rounded-3xl px-1.5 py-1">
-          <p className="text-[10px] text-secondary-text uppercase">
-            +{formatRemaining(remaining)} others
-          </p>
-        </div>
+    <span
+      className={cn(
+        "inline-flex items-center gap-x-2 rounded-full border py-1.5 pl-2 pr-3 text-xs font-medium",
+        shell,
       )}
-    </div>
+    >
+      <span className="flex items-center">
+        {bubbles.map((tint, index) => (
+          <span
+            key={tint}
+            style={{ backgroundColor: tint }}
+            className={cn(
+              "h-4 w-4 rounded-full border-2",
+              tone === "light" ? "border-white/70" : "border-white",
+              index > 0 && "-ml-1.5",
+            )}
+          />
+        ))}
+      </span>
+      {formatCount(impressions)} {impressions === 1 ? "view" : "views"}
+    </span>
   );
 }

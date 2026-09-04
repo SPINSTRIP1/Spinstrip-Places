@@ -10,6 +10,7 @@ import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import ListingCard from "@/components/ListingCard";
 import ListingCardSkeletonGrid from "@/components/listing-card-skeleton";
+import PaginationBar from "@/components/pagination-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import SectionTabs from "@/components/SectionTabs";
 import { SECTIONS, type Listing, type SectionKey } from "@/data/listings";
@@ -47,23 +48,44 @@ export default function HomeView() {
   const [category, setCategory] = useState("");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("recommended");
+  const [page, setPage] = useState(1);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   // Search runs on the server, so only send it once typing settles.
   const search = useDebouncedValue(query.trim(), 400);
 
+  // Every filter change puts you back on page 1 — page 4 of the old result
+  // set is meaningless against the new one. Done in the handlers rather than
+  // an effect so the reset lands in the same render as the filter change.
+  const handleQuery = (value: string) => {
+    setQuery(value);
+    setPage(1);
+  };
+
+  const handleCategory = (value: string) => {
+    setCategory(value);
+    setPage(1);
+  };
+
+  const handleSort = (value: SortKey) => {
+    setSort(value);
+    setPage(1);
+  };
+
   // Every filter below is a server query param — nothing is filtered client-side.
   const {
     places,
     count: placesCount,
+    lastPage: placesLastPage,
     isLoading: placesLoading,
+    isFetching: placesFetching,
   } = usePublicPlaces(
     {
       status: "PUBLISHED",
       placeType: category || undefined,
       search: search || undefined,
       ...PLACE_SORTS[sort],
-      page: 1,
+      page,
       limit: PAGE_SIZE,
     },
     { enabled: section === "places" },
@@ -72,7 +94,9 @@ export default function HomeView() {
   const {
     events,
     count: eventsCount,
+    lastPage: eventsLastPage,
     isLoading: eventsLoading,
+    isFetching: eventsFetching,
   } = usePublicEvents(
     {
       status: "ACTIVE",
@@ -81,7 +105,7 @@ export default function HomeView() {
         category && category !== EVENT_FEATURED_VALUE ? category : undefined,
       search: search || undefined,
       ...EVENT_SORTS[sort],
-      page: 1,
+      page,
       limit: PAGE_SIZE,
     },
     { enabled: section === "events" },
@@ -90,13 +114,15 @@ export default function HomeView() {
   const {
     menuItems,
     count: menuCount,
+    lastPage: menuLastPage,
     isLoading: menuLoading,
+    isFetching: menuFetching,
   } = usePublicMenu(
     {
       category: category || undefined,
       search: search || undefined,
       ...MENU_SORTS[sort],
-      page: 1,
+      page,
       limit: PAGE_SIZE,
     },
     { enabled: section === "menu" },
@@ -105,6 +131,12 @@ export default function HomeView() {
   const handleSection = (s: SectionKey) => {
     setSection(s);
     setCategory("");
+    setPage(1);
+    resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handlePage = (next: number) => {
+    setPage(next);
     resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -130,6 +162,23 @@ export default function HomeView() {
         ? eventsLoading
         : menuLoading;
 
+  const lastPage =
+    section === "places"
+      ? placesLastPage
+      : section === "events"
+        ? eventsLastPage
+        : menuLastPage;
+
+  // True while a *subsequent* page is in flight — the current cards stay on
+  // screen and the pager dims, rather than the grid collapsing to skeletons.
+  const isPaging =
+    !isLoading &&
+    (section === "places"
+      ? placesFetching
+      : section === "events"
+        ? eventsFetching
+        : menuFetching);
+
   const activeSection = SECTIONS.find((s) => s.key === section)!;
 
   const handleOpen = (listing: Listing) => {
@@ -147,7 +196,7 @@ export default function HomeView() {
       <Header />
 
       <main>
-        <Hero query={query} onQuery={setQuery} />
+        <Hero query={query} onQuery={handleQuery} />
         <SectionTabs active={section} onChange={handleSection} />
 
         <div ref={resultsRef} className="scroll-mt-20">
@@ -155,12 +204,12 @@ export default function HomeView() {
             key={section}
             categories={CATEGORY_OPTIONS[section]}
             active={category}
-            onChange={setCategory}
+            onChange={handleCategory}
             sort={sort}
-            onSort={setSort}
+            onSort={handleSort}
           />
 
-          <section className="mx-auto mt-8 max-w-6xl px-4 sm:px-6">
+          <section className="mx-auto mt-8 max-w-7xl px-4 sm:px-6">
             <div className="mb-5 flex items-end justify-between">
               <div>
                 <h2 className="font-display text-2xl font-bold text-[#0F0F0F] sm:text-3xl">
@@ -183,7 +232,7 @@ export default function HomeView() {
               <ListingCardSkeletonGrid />
             ) : visible.length > 0 ? (
               <div
-                key={`${section}-${category}-${sort}-${search}`}
+                key={`${section}-${category}-${sort}-${search}-${page}`}
                 className="section-swap grid grid-cols-1 gap-5 pb-6 sm:grid-cols-2 lg:grid-cols-3"
               >
                 {visible.map((l, i) => (
@@ -199,21 +248,38 @@ export default function HomeView() {
               <div className="section-swap flex flex-col items-center gap-3 rounded-3xl border border-dashed border-neutral-accent bg-white/60 py-16 text-center">
                 <SearchX className="h-8 w-8 text-primary-light" />
                 <p className="font-display text-lg font-semibold text-[#0F0F0F]">
-                  Nothing found
+                  {page > 1 ? "Nothing on this page" : "Nothing found"}
                 </p>
                 <p className="max-w-xs text-sm text-[#6F6D6D]">
-                  Try a different search term or clear the category filter.
+                  {page > 1
+                    ? "This page is past the end of the results — they may have changed since you loaded them."
+                    : "Try a different search term or clear the category filter."}
                 </p>
                 <button
                   onClick={() => {
+                    if (page > 1) {
+                      handlePage(1);
+                      return;
+                    }
                     setQuery("");
                     setCategory("");
                   }}
                   className="btn-press mt-2 rounded-full bg-[#6932E2] px-5 py-2 text-sm font-semibold text-white hover:bg-[#7C4BE8]"
                 >
-                  Clear filters
+                  {page > 1 ? "Back to first page" : "Clear filters"}
                 </button>
               </div>
+            )}
+
+            {!isLoading && visible.length > 0 && (
+              <PaginationBar
+                page={page}
+                lastPage={lastPage}
+                total={total}
+                pageSize={PAGE_SIZE}
+                onPageChange={handlePage}
+                busy={isPaging}
+              />
             )}
           </section>
         </div>

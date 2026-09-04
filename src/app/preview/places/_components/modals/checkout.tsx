@@ -1,25 +1,38 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import SideModal from "@/components/side-modal";
-import Image from "next/image";
-import {
-  Globe02Icon,
-  Location01Icon,
-  Time01Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Button } from "@/components/ui/button";
-import { FormInput } from "@/components/ui/form-input";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import z from "zod";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar } from "@/components/ui/calendar";
 import { format, differenceInCalendarDays } from "date-fns";
 import { DateRange } from "react-day-picker";
+import { AxiosError } from "axios";
+import toast from "react-hot-toast";
+import {
+  Globe02Icon,
+  Location01Icon,
+  Sofa01Icon,
+  Time01Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
+import SideModal from "@/components/side-modal";
+import SectionHeader from "@/components/section-header";
+import EmptyState from "@/components/empty-state";
+import { FormInput } from "@/components/ui/form-input";
+import { Calendar } from "@/components/ui/calendar";
+import CheckoutSteps from "@/components/checkout/checkout-steps";
+import CheckoutActions from "@/components/checkout/checkout-actions";
+import OptionCard from "@/components/checkout/option-card";
+import ConsentCheck from "@/components/checkout/consent-check";
+import PaymentMethodPicker from "@/components/checkout/payment-method-picker";
+import SummaryCard, { SummaryRow } from "@/components/checkout/summary-card";
+import {
+  CheckoutFooter,
+  CheckoutHeader,
+} from "@/components/checkout/checkout-header";
 import {
   BookFacilityPayload,
   BookFacilityResponse,
@@ -27,13 +40,11 @@ import {
   PublicFacility,
   PublicPlace,
 } from "@/hooks/use-places";
-import { cn, getOperatingHoursDisplay } from "@/lib/utils";
+import { getOperatingHoursDisplay } from "@/lib/utils";
 import { formatAmount } from "@/utils";
 import { PLACES_API_URL } from "@/constants";
 import apiClient from "@/lib/api/axios-client";
 import { handleAxiosError } from "@/lib/api/handle-axios-error";
-import { AxiosError } from "axios";
-import toast from "react-hot-toast";
 
 interface CheckOutModalProps {
   isOpen: boolean;
@@ -78,34 +89,31 @@ type BookingFormData = z.infer<typeof bookingSchema>;
 const DEFAULT_CHECK_IN_TIME = "14:00";
 const DEFAULT_CHECK_OUT_TIME = "11:00";
 
+const PAYMENT_OPTIONS = [
+  {
+    value: "PAYSTACK",
+    label: "Paystack",
+    hint: "Card, bank transfer or USSD",
+  },
+  {
+    value: "LEDGER_BLOCK",
+    label: "Fuspay",
+    hint: "Card, bank transfer or USSD",
+  },
+] as const satisfies readonly {
+  value: PlacePaymentMethod;
+  label: string;
+  hint: string;
+}[];
+
+const STEPS = ["Your stay", "Details & payment"];
+
 /** Combines a calendar date with an "HH:mm" time into an ISO 8601 string. */
 function toIsoDateTime(date: Date, time: string) {
   const [hours, minutes] = time.split(":").map(Number);
   const combined = new Date(date);
   combined.setHours(hours || 0, minutes || 0, 0, 0);
   return combined.toISOString();
-}
-
-function SummaryRow({
-  label,
-  value,
-  bold,
-}: {
-  label: string;
-  value: string;
-  bold?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex gap-x-4 justify-between",
-        bold ? "font-bold mt-2 pt-2 border-t border-gray-300" : "mb-1.5",
-      )}
-    >
-      <p className="text-sm">{label}</p>
-      <p className="text-sm text-right shrink-0">{value}</p>
-    </div>
-  );
 }
 
 export default function CheckOutModal({
@@ -244,7 +252,8 @@ export default function CheckOutModal({
         data?.payment?.authorizationUrl ?? data?.authorizationUrl;
 
       if (paymentUrl) {
-        // Hand off to Paystack; it returns to callbackUrl on completion.
+        setLoading(false);
+        // Hand off to the provider; it returns to callbackUrl on completion.
         window.location.assign(paymentUrl);
         return;
       }
@@ -271,13 +280,19 @@ export default function CheckOutModal({
     ? `${format(dateRange!.from!, "d MMM yyyy")} → ${format(dateRange!.to!, "d MMM yyyy")}`
     : "Not selected";
 
+  const nightCount = Math.max(nights, 1);
+
   const orderSummary = (
-    <div className="bg-neutral rounded-lg p-3">
-      <h3 className="font-bold text-primary-text text-sm mb-3">
-        Order Summary
-      </h3>
-      <SummaryRow label="Facility" value={selectedFacility?.name ?? "—"} />
-      <SummaryRow label="Stay" value={stayLabel} />
+    <SummaryCard
+      total={isFree ? "Free" : formatAmount(totalAmount)}
+      note={hasDates ? undefined : "Pick your dates to see the full total."}
+    >
+      <SummaryRow
+        label="Facility"
+        value={selectedFacility?.name ?? "None selected"}
+        muted={!selectedFacility}
+      />
+      <SummaryRow label="Stay" value={stayLabel} muted={!hasDates} />
       {hasDates && (
         <SummaryRow
           label="Check-in / Check-out"
@@ -288,271 +303,224 @@ export default function CheckOutModal({
         <SummaryRow label="Access" value="Free" />
       ) : (
         <SummaryRow
-          label={`${Math.max(nights, 1)} ${
-            Math.max(nights, 1) === 1 ? "night" : "nights"
-          } × ${selectedFee?.name ?? "Rate"}`}
+          label={`${nightCount} ${nightCount === 1 ? "night" : "nights"} × ${
+            selectedFee?.name ?? "Rate"
+          }`}
           value={formatAmount(unitAmount)}
         />
       )}
-      <SummaryRow
-        bold
-        label="TOTAL"
-        value={isFree ? "Free" : formatAmount(totalAmount)}
-      />
-    </div>
+    </SummaryCard>
   );
 
+  const missingLabel = !selectedFacility
+    ? "Choose a facility to continue"
+    : !hasDates
+      ? "Select your check-in and check-out dates"
+      : undefined;
+
   return (
-    <SideModal isOpen={isOpen} onClose={onClose}>
+    <SideModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Checkout"
+      subtitle={place.name}
+    >
       <FormProvider {...form}>
-        <div className="space-y-6 pt-14 pb-5">
-          <div className="w-full h-[180px]">
-            <Image
-              src={place?.coverImage || ""}
-              alt={place.name}
-              width={1200}
-              height={560}
-              className="w-full h-full object-cover rounded-2xl"
-            />
-          </div>
-          <div className="flex flex-col md:flex-row justify-between md:items-center">
-            <div>
-              <h2 className="text-base lg:text-[42px] mb-3 leading-[110%] text-black font-bold">
-                {place.name}
-              </h2>
+        <div className="space-y-6 pb-2">
+          <CheckoutHeader
+            image={selectedFacility?.images?.[0] || place.coverImage}
+            title={place.name}
+            metas={[
+              {
+                icon: Location01Icon,
+                label: [place.city, place.state].filter(Boolean).join(", "),
+              },
+              {
+                icon: Time01Icon,
+                label: getOperatingHoursDisplay(place.operatingHours),
+              },
+              ...(place.website
+                ? [{ icon: Globe02Icon, label: place.website }]
+                : []),
+            ]}
+          />
 
-              <div className="flex flex-col md:flex-row md:items-center gap-3">
-                <div className="flex items-center gap-x-2">
-                  <HugeiconsIcon
-                    icon={Location01Icon}
-                    size={24}
-                    color="#6F6D6D"
-                  />
-                  <p className="text-sm">
-                    {place.city}, {place.state}
-                  </p>
-                </div>
-                <div className="flex items-center gap-x-2">
-                  <HugeiconsIcon icon={Time01Icon} size={24} color="#6F6D6D" />
-                  {getOperatingHoursDisplay(place.operatingHours)}
-                </div>
-                <div className="flex items-center gap-x-2">
-                  <HugeiconsIcon icon={Globe02Icon} size={24} color="#6F6D6D" />
-                  <p className="text-sm">{place.website || "N/A"}</p>
-                </div>
-              </div>
-            </div>
-
-            <button className="flex items-center my-2 shrink-0 bg-primary gap-x-0.5 rounded-xl px-2.5 py-1.5">
-              <Image
-                src={"/logo-mark.svg"}
-                alt={place.name}
-                width={40}
-                height={40}
-                className="w-5 h-5 object-contain"
-              />
-              <p className="text-sm text-white">Follow</p>
-            </button>
-          </div>
+          <CheckoutSteps
+            current={currentStep}
+            steps={STEPS}
+            onStepClick={setCurrentStep}
+          />
 
           {currentStep === 1 && (
             <div className="space-y-6">
-              {/* Facility — `facilityId` */}
-              {facilities.length > 1 && (
-                <div className="space-y-3">
-                  <h2 className="font-bold text-lg text-primary-text">
-                    Choose a facility
-                  </h2>
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    {facilities.map((item) => {
-                      const isSelected = item.id === selectedFacilityId;
-                      const from = (item.fees ?? [])
-                        .map((fee) => Number(fee.amount) || 0)
-                        .sort((a, b) => a - b)[0];
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setSelectedFacilityId(item.id)}
-                          className={cn(
-                            "flex items-center gap-x-3 rounded-2xl border p-2 text-left transition-all",
-                            isSelected
-                              ? "border-primary bg-primary-accent/40"
-                              : "border-[#E0E0E0] hover:border-neutral-accent",
-                          )}
-                        >
-                          <Image
-                            src={item.images?.[0] || place.coverImage || ""}
-                            alt={item.name}
-                            width={120}
-                            height={120}
-                            className="w-14 h-14 rounded-xl object-cover shrink-0"
+              {facilities.length === 0 ? (
+                <EmptyState
+                  icon={<HugeiconsIcon icon={Sofa01Icon} size={26} />}
+                  title="Nothing bookable yet"
+                  description="This place hasn't published any bookable facilities. Follow it to hear when reservations open."
+                />
+              ) : (
+                <>
+                  {facilities.length > 1 && (
+                    <section className="space-y-3">
+                      <SectionHeader
+                        title="Choose a facility"
+                        badge={`${facilities.length}`}
+                      />
+                      <div
+                        className="grid gap-3 sm:grid-cols-2"
+                        role="radiogroup"
+                      >
+                        {facilities.map((item) => {
+                          const from = (item.fees ?? [])
+                            .map((fee) => Number(fee.amount) || 0)
+                            .sort((a, b) => a - b)[0];
+                          return (
+                            <OptionCard
+                              key={item.id}
+                              selected={item.id === selectedFacilityId}
+                              onSelect={() => setSelectedFacilityId(item.id)}
+                              image={item.images?.[0] || place.coverImage}
+                              title={item.name}
+                              subtitle={
+                                from
+                                  ? `${item.facilityCategory} · from ${formatAmount(from)}`
+                                  : `${item.facilityCategory} · Free`
+                              }
+                            />
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
+
+                  <section className="space-y-3">
+                    <SectionHeader
+                      title="Select a rate"
+                      subtitle={
+                        fees.length
+                          ? "Rates are charged per night of your stay."
+                          : undefined
+                      }
+                    />
+                    {fees.length === 0 ? (
+                      <EmptyState
+                        variant="inline"
+                        title={
+                          selectedFacility
+                            ? "No payment required"
+                            : "No facility selected"
+                        }
+                        description={
+                          selectedFacility
+                            ? "This facility is free to book — just pick your dates below."
+                            : "Choose a facility above to see its rates."
+                        }
+                      />
+                    ) : (
+                      <div className="space-y-3" role="radiogroup">
+                        {fees.map((fee) => (
+                          <OptionCard
+                            key={fee.id}
+                            selected={fee.id === selectedFee?.id}
+                            onSelect={() => setSelectedFeeId(fee.id)}
+                            title={fee.name}
+                            subtitle={fee.description}
+                            trailing={formatAmount(fee.amount)}
                           />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-bold text-primary-text truncate">
-                              {item.name}
-                            </p>
-                            <p className="text-xs text-secondary-text truncate">
-                              {item.facilityCategory}
-                            </p>
-                            <p className="text-xs font-bold text-primary-text">
-                              {from ? `from ${formatAmount(from)}` : "Free"}
-                            </p>
-                          </div>
-                          <span
-                            className={cn(
-                              "w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center",
-                              isSelected ? "border-primary" : "border-gray-300",
-                            )}
-                          >
-                            {isSelected && (
-                              <span className="w-2.5 h-2.5 rounded-full bg-primary" />
-                            )}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                        ))}
+                      </div>
+                    )}
+                  </section>
 
-              {/* Fee tier — `feeId` */}
-              <div className="space-y-3">
-                <h2 className="font-bold text-lg text-primary-text">
-                  Select a rate
-                </h2>
-                {fees.length === 0 ? (
-                  <p className="text-sm text-secondary-text">
-                    {selectedFacility
-                      ? "This facility is free to book — no payment required."
-                      : "Select a facility to see its rates."}
-                  </p>
-                ) : (
-                  <div className="flex">
-                    <div className="h-auto w-1 border-l border-[#6F6D6D]" />
-                    <div className="space-y-3 w-full flex-1">
-                      {fees.map((fee) => {
-                        const isSelected = fee.id === selectedFee?.id;
-                        return (
-                          <div key={fee.id} className="px-2">
-                            <div className="flex items-start justify-between gap-x-4">
-                              <div className="min-w-0">
-                                <h3 className="text-sm">{fee.name}</h3>
-                                {fee.description && (
-                                  <p className="text-xs text-secondary-text">
-                                    {fee.description}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="flex items-center shrink-0 gap-x-2">
-                                <p className="text-sm font-bold">
-                                  {formatAmount(fee.amount)}
-                                </p>
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedFeeId(fee.id)}
-                                  className={cn(
-                                    "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
-                                    isSelected
-                                      ? "border-primary"
-                                      : "border-gray-300",
-                                  )}
-                                >
-                                  {isSelected && (
-                                    <div className="w-2.5 h-2.5 rounded-full bg-primary" />
-                                  )}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+                  <section className="space-y-3">
+                    <SectionHeader
+                      title="Your stay"
+                      subtitle={
+                        hasDates
+                          ? `${nightCount} ${nightCount === 1 ? "night" : "nights"} selected`
+                          : "Pick a check-in and a check-out date."
+                      }
+                    />
 
-              {/* Dates — `checkInDate` / `checkOutDate` */}
-              <div className="space-y-3">
-                <h2 className="font-bold text-lg text-primary-text">
-                  Your stay
-                </h2>
-                <div className="text-sm grid grid-cols-2 gap-3">
-                  <div className="border-[#E0E0E0] py-1.5 px-2 flex items-center gap-x-1 border rounded-2xl">
-                    <div className="bg-[#E0E0E0] shrink-0 rounded-2xl py-0.5 px-2">
-                      <p className="text-primary-text">Check In</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {(
+                        [
+                          { label: "Check in", date: dateRange?.from },
+                          { label: "Check out", date: dateRange?.to },
+                        ] as const
+                      ).map((slot) => (
+                        <div
+                          key={slot.label}
+                          className="rounded-2xl border border-background-light bg-white px-3 py-2"
+                        >
+                          <p className="text-xs uppercase tracking-wide text-secondary-text">
+                            {slot.label}
+                          </p>
+                          <p className="truncate text-sm font-bold text-primary-text">
+                            {slot.date
+                              ? format(slot.date, "d MMM yyyy")
+                              : "Select a date"}
+                          </p>
+                        </div>
+                      ))}
                     </div>
-                    <p className="text-primary-text truncate font-bold">
-                      {dateRange?.from
-                        ? format(dateRange.from, "d MMM")
-                        : "Select"}
-                    </p>
-                  </div>
-                  <div className="border-[#E0E0E0] py-1.5 px-2 flex items-center gap-x-1 border rounded-2xl">
-                    <div className="bg-[#E0E0E0] shrink-0 rounded-2xl py-0.5 px-2">
-                      <p className="text-primary-text">Check Out</p>
-                    </div>
-                    <p className="text-primary-text truncate font-bold">
-                      {dateRange?.to ? format(dateRange.to, "d MMM") : "Select"}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="border border-[#E0E0E0] rounded-2xl p-2 overflow-x-auto">
-                  <Calendar
-                    mode="range"
-                    selected={dateRange}
-                    onSelect={setDateRange}
-                    numberOfMonths={1}
-                    disabled={{ before: new Date() }}
-                    className="w-full [--cell-size:2.25rem] p-0"
+                    <div className="overflow-x-auto rounded-2xl border border-background-light bg-white p-2">
+                      <Calendar
+                        mode="range"
+                        selected={dateRange}
+                        onSelect={setDateRange}
+                        numberOfMonths={1}
+                        disabled={{ before: new Date() }}
+                        className="w-full p-0 [--cell-size:2.25rem]"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="checkInTime"
+                          className="text-xs font-bold uppercase tracking-wide text-secondary-text"
+                        >
+                          Check-in time
+                        </label>
+                        <input
+                          id="checkInTime"
+                          type="time"
+                          value={checkInTime}
+                          onChange={(e) => setCheckInTime(e.target.value)}
+                          className="w-full rounded-2xl border border-background-light bg-white px-3 py-2.5 text-sm text-primary-text focus:border-primary focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="checkOutTime"
+                          className="text-xs font-bold uppercase tracking-wide text-secondary-text"
+                        >
+                          Check-out time
+                        </label>
+                        <input
+                          id="checkOutTime"
+                          type="time"
+                          value={checkOutTime}
+                          onChange={(e) => setCheckOutTime(e.target.value)}
+                          className="w-full rounded-2xl border border-background-light bg-white px-3 py-2.5 text-sm text-primary-text focus:border-primary focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </section>
+
+                  {orderSummary}
+
+                  <CheckoutActions
+                    submitLabel="Continue to details"
+                    submitDisabled={!canContinue}
+                    onSubmit={() => setCurrentStep(2)}
+                    hint={missingLabel}
                   />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label
-                      htmlFor="checkInTime"
-                      className="text-sm font-medium text-primary-text"
-                    >
-                      Check-in time
-                    </label>
-                    <input
-                      id="checkInTime"
-                      type="time"
-                      value={checkInTime}
-                      onChange={(e) => setCheckInTime(e.target.value)}
-                      className="w-full rounded-2xl border border-neutral-accent px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label
-                      htmlFor="checkOutTime"
-                      className="text-sm font-medium text-primary-text"
-                    >
-                      Check-out time
-                    </label>
-                    <input
-                      id="checkOutTime"
-                      type="time"
-                      value={checkOutTime}
-                      onChange={(e) => setCheckOutTime(e.target.value)}
-                      className="w-full rounded-2xl border border-neutral-accent px-3 py-2 text-sm"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {orderSummary}
-
-              <Button
-                onClick={() => setCurrentStep(2)}
-                disabled={!canContinue}
-                className="w-full"
-                size={"lg"}
-              >
-                Proceed to Checkout
-              </Button>
+                </>
+              )}
             </div>
           )}
 
@@ -560,31 +528,34 @@ export default function CheckOutModal({
             <div className="space-y-6">
               {orderSummary}
 
-              <div>
-                <h2 className="text-primary-text text-lg font-bold">
-                  Contact Information
-                </h2>
-                <p className="text-sm text-primary-text">
+              <section className="space-y-3">
+                <SectionHeader
+                  title="Contact information"
+                  subtitle="Your booking confirmation is sent to this email address."
+                />
+                <p className="text-sm text-secondary-text">
                   <Link href="/login" className="font-bold text-primary">
-                    Login to SpinStrip
+                    Log in to SpinStrip
                   </Link>{" "}
-                  for a better experience
+                  to check out faster next time.
                 </p>
-                <div className="space-y-4 mt-3">
-                  <FormInput
-                    control={form.control}
-                    name="firstName"
-                    label="First Name"
-                    placeholder="Enter First name"
-                    type="text"
-                  />
-                  <FormInput
-                    control={form.control}
-                    name="lastName"
-                    label="Last Name"
-                    placeholder="Enter Last name"
-                    type="text"
-                  />
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormInput
+                      control={form.control}
+                      name="firstName"
+                      label="First Name"
+                      placeholder="Enter First name"
+                      type="text"
+                    />
+                    <FormInput
+                      control={form.control}
+                      name="lastName"
+                      label="Last Name"
+                      placeholder="Enter Last name"
+                      type="text"
+                    />
+                  </div>
                   <FormInput
                     control={form.control}
                     name="email"
@@ -605,145 +576,63 @@ export default function CheckOutModal({
                     type="text"
                   />
                 </div>
-              </div>
+              </section>
 
-              {/* Payment method — `paymentMethod` */}
-              {/* {!isFree && (
-                <div className="space-y-3">
-                  <h2 className="text-primary-text text-lg font-bold">
-                    Payment Method
-                  </h2>
-                  {(
-                    [
-                      {
-                        value: "PAYSTACK",
-                        label: "Paystack",
-                        hint: "Card, bank transfer or USSD",
-                        disabled: false,
-                      },
-                      {
-                        value: "LEDGER_BLOCK",
-                        label: "SpinStrip Wallet",
-                        hint: "Sign in to pay from your wallet balance",
-                        disabled: !userId,
-                      },
-                    ] as const
-                  ).map((option) => {
-                    const isSelected = paymentMethod === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        disabled={option.disabled}
-                        onClick={() => setPaymentMethod(option.value)}
-                        className={cn(
-                          "w-full flex items-center justify-between gap-x-3 rounded-2xl border p-3 text-left transition-all",
-                          option.disabled && "opacity-50 cursor-not-allowed",
-                          isSelected
-                            ? "border-primary bg-primary-accent/40"
-                            : "border-[#E0E0E0]",
-                        )}
-                      >
-                        <div>
-                          <p className="text-sm font-bold text-primary-text">
-                            {option.label}
-                          </p>
-                          <p className="text-xs text-secondary-text">
-                            {option.hint}
-                          </p>
-                        </div>
-                        <span
-                          className={cn(
-                            "w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center",
-                            isSelected ? "border-primary" : "border-gray-300",
-                          )}
-                        >
-                          {isSelected && (
-                            <span className="w-2.5 h-2.5 rounded-full bg-primary" />
-                          )}
-                        </span>
-                      </button>
-                    );
-                  })}
+              {!isFree && (
+                <section className="space-y-3">
+                  <SectionHeader title="Payment method" />
+                  <PaymentMethodPicker
+                    value={paymentMethod}
+                    onChange={setPaymentMethod}
+                    options={PAYMENT_OPTIONS}
+                  />
+                </section>
+              )}
+
+              <section className="space-y-3">
+                <div className="space-y-3 rounded-2xl border border-background-light bg-background p-4">
+                  <ConsentCheck
+                    id="place-consent-place"
+                    checked={consents.place}
+                    onChange={(value) =>
+                      setConsents((prev) => ({ ...prev, place: value }))
+                    }
+                  >
+                    Keep me updated on more events and news from this place.
+                  </ConsentCheck>
+                  <ConsentCheck
+                    id="place-consent-news"
+                    checked={consents.news}
+                    onChange={(value) =>
+                      setConsents((prev) => ({ ...prev, news: value }))
+                    }
+                  >
+                    Send me emails about the best events happening nearby or
+                    online.
+                  </ConsentCheck>
                 </div>
-              )} */}
-
-              <div>
-                <p className="text-sm text-[#000000E5]">
-                  By clicking “Book Now” I Agree to the{" "}
+                <p className="text-xs leading-relaxed text-secondary-text">
+                  By completing this booking you agree to the{" "}
                   <Link href="/login" className="font-bold text-primary">
                     SpinStrip Terms of Service
                   </Link>
+                  .
                 </p>
-                {/* marketingConsentPlace */}
-                <div className="flex gap-x-2 my-3 items-center">
-                  <Checkbox
-                    checked={consents.place}
-                    onCheckedChange={(value) =>
-                      setConsents((prev) => ({
-                        ...prev,
-                        place: value as boolean,
-                      }))
-                    }
-                  />
-                  <span className="text-[#000000E5] text-sm">
-                    Keep me updated on more events and news from this Place.
-                  </span>
-                </div>
-                {/* marketingConsentNews */}
-                <div className="flex gap-x-2 my-2 items-center">
-                  <Checkbox
-                    checked={consents.news}
-                    onCheckedChange={(value) =>
-                      setConsents((prev) => ({
-                        ...prev,
-                        news: value as boolean,
-                      }))
-                    }
-                  />
-                  <span className="text-[#000000E5] text-sm">
-                    Send me emails about the best events happening nearby or
-                    online.
-                  </span>
-                </div>
-              </div>
+              </section>
 
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button
-                  variant="secondary"
-                  className="sm:w-[140px]"
-                  size={"lg"}
-                  disabled={loading}
-                  onClick={() => setCurrentStep(1)}
-                >
-                  Back
-                </Button>
-                <Button
-                  disabled={!form.formState.isValid || loading}
-                  onClick={onSubmit}
-                  className="flex-1"
-                  size={"lg"}
-                >
-                  {loading
-                    ? "Processing..."
-                    : isFree
-                      ? "Book Now"
-                      : `Pay ${formatAmount(totalAmount)}`}
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-center gap-x-1.5 border-t pt-4">
-                <p className="text-sm">Powered by</p>
-                <Image
-                  src={"/logo-black.svg"}
-                  alt="SpinStrip"
-                  width={100}
-                  height={100}
-                  className="w-[78px] h-[24px] object-contain"
-                />
-              </div>
+              <CheckoutActions
+                onBack={() => setCurrentStep(1)}
+                submitLabel={
+                  isFree ? "Book now" : `Pay ${formatAmount(totalAmount)}`
+                }
+                submitDisabled={!form.formState.isValid}
+                loading={loading}
+                onSubmit={onSubmit}
+              />
             </div>
           )}
+
+          <CheckoutFooter />
         </div>
       </FormProvider>
     </SideModal>

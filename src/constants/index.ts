@@ -201,4 +201,4 @@ export const MENU_SORTS: Record<SortKey, SortParams> = {
 };
 
 /** Page size requested per section (`/menu/public` caps `limit` at 100). */
-export const PAGE_SIZE = 50;
+export const PAGE_SIZE = 12;

@@ -30,7 +30,7 @@ export default function Header() {
     >
       {/* liquid-glass pill — same navbar treatment as spinstrip.com */}
       <div
-        className={`liquid-glass relative mx-auto flex h-16 w-full max-w-6xl items-center justify-between rounded-3xl px-4 py-3 sm:px-6 ${
+        className={`liquid-glass relative mx-auto flex h-16 w-full max-w-7xl items-center justify-between rounded-3xl px-4 py-3 sm:px-6 ${
           scrolled ? "shadow-[0_12px_40px_-18px_rgba(105,50,226,0.35)]" : ""
         }`}
       >

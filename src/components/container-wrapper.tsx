@@ -1,4 +1,5 @@
 import React from "react";
+import { cn } from "@/lib/utils";
 
 export default function ContainerWrapper({
   children,
@@ -8,7 +9,12 @@ export default function ContainerWrapper({
   className?: string;
 }) {
   return (
-    <div className={`rounded-[32px] bg-[#f8f8f8] p-4 ${className}`}>
+    <div
+      className={cn(
+        "rounded-[32px] border border-background-light bg-white p-4 sm:p-5",
+        className,
+      )}
+    >
       {children}
     </div>
   );

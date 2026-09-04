@@ -4,13 +4,14 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Image from "next/image";
+import type { ComponentProps } from "react";
 
 export default function Success({
   type = "success",
   icon,
 }: {
   type?: "success" | "info";
-  icon?: any;
+  icon?: ComponentProps<typeof HugeiconsIcon>["icon"];
 }) {
   return (
     <div className="bg-white relative overflow-hidden p-3 rounded-full shadow-md">

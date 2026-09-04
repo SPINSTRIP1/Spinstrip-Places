@@ -719,6 +719,56 @@
   box-shadow: 0 -12px 60px -12px rgba(15, 15, 15, 0.35);
 }
 
+/* ───────────────────────────── Side panel (checkout) ───────────────────────────── */
+
+/* Entry is a keyframe, not a state flip: the panel is painted at its final
+   position on the very first frame, so a dropped frame can never leave an
+   invisible overlay covering the page. */
+@keyframes side-panel-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes side-panel-out {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes side-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes side-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.side-panel-in {
+  animation: side-panel-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.side-panel-out {
+  animation: side-panel-out 0.28s ease-in both;
+}
+.side-overlay-in {
+  animation: side-overlay-in 0.28s ease both;
+}
+.side-overlay-out {
+  animation: side-overlay-out 0.28s ease both;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .aurora-hue,
@@ -730,6 +780,10 @@
   .rise-in,
   .card-in,
   .section-swap {
+    animation: none !important;
+  }
+  .side-panel-in,
+  .side-overlay-in {
     animation: none !important;
   }
   .listing-card,

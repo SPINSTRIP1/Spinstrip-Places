@@ -63,7 +63,7 @@ function SuccessContent() {
             <h1 className="text-xl font-bold text-primary-text">
               Verifying your payment...
             </h1>
-            <p className="text-sm text-[#6F6D6D]">
+            <p className="text-sm text-secondary-text">
               Hold on while we confirm your transaction.
             </p>
           </div>
@@ -73,7 +73,7 @@ function SuccessContent() {
   }
 
   return (
-    <section className="min-h-screen bg-neutral flex flex-col items-center justify-center px-4 py-10">
+    <section className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         {/* Ticket-style card */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
@@ -87,7 +87,7 @@ function SuccessContent() {
                   ? "Payment Successful!"
                   : "Registration Received!"}
             </h1>
-            <p className="text-sm text-[#6F6D6D] mt-2">
+            <p className="text-sm text-secondary-text mt-2">
               {isFailed
                 ? "We couldn't confirm your payment. If you were debited, don't worry — your ticket will be issued once the payment is confirmed."
                 : "Your ticket has been booked. A confirmation with your ticket details is on its way to your inbox."}
@@ -102,7 +102,7 @@ function SuccessContent() {
           <div className="px-6 py-4 space-y-4">
             {reference && (
               <div className="flex items-start justify-between gap-x-4">
-                <p className="text-sm text-[#6F6D6D]">Reference</p>
+                <p className="text-sm text-secondary-text">Reference</p>
                 <p className="text-sm font-bold text-primary-text text-right break-all">
                   {reference}
                 </p>
@@ -110,7 +110,7 @@ function SuccessContent() {
             )}
             {paymentStatus && (
               <div className="flex items-center justify-between gap-x-4">
-                <p className="text-sm text-[#6F6D6D]">Payment Status</p>
+                <p className="text-sm text-secondary-text">Payment Status</p>
                 <span
                   className={`text-xs font-bold px-3 py-1 rounded-full ${
                     isVerified
@@ -138,38 +138,38 @@ function SuccessContent() {
                   What happens next?
                 </h2>
                 <div className="flex items-center gap-x-3">
-                  <div className="bg-neutral rounded-full p-2 shrink-0">
+                  <div className="bg-primary-accent rounded-full p-2 shrink-0">
                     <HugeiconsIcon
                       icon={Mail01Icon}
                       size={18}
                       color="#6932E2"
                     />
                   </div>
-                  <p className="text-sm text-[#6F6D6D]">
+                  <p className="text-sm text-secondary-text">
                     Check your email for your ticket confirmation.
                   </p>
                 </div>
                 <div className="flex items-center gap-x-3">
-                  <div className="bg-neutral rounded-full p-2 shrink-0">
+                  <div className="bg-primary-accent rounded-full p-2 shrink-0">
                     <HugeiconsIcon
                       icon={Ticket01Icon}
                       size={18}
                       color="#6932E2"
                     />
                   </div>
-                  <p className="text-sm text-[#6F6D6D]">
+                  <p className="text-sm text-secondary-text">
                     Present your ticket at the event entrance.
                   </p>
                 </div>
                 <div className="flex items-center gap-x-3">
-                  <div className="bg-neutral rounded-full p-2 shrink-0">
+                  <div className="bg-primary-accent rounded-full p-2 shrink-0">
                     <HugeiconsIcon
                       icon={Calendar03Icon}
                       size={18}
                       color="#6932E2"
                     />
                   </div>
-                  <p className="text-sm text-[#6F6D6D]">
+                  <p className="text-sm text-secondary-text">
                     We&apos;ll remind you before the event starts.
                   </p>
                 </div>

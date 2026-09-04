@@ -1,32 +1,41 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import SideModal from "@/components/side-modal";
-import Image from "next/image";
-import {
-  Calendar03Icon,
-  Location01Icon,
-  MinusSignIcon,
-  PlusSignIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { formatDateDisplay } from "@/utils";
-import ImpressionsStack from "@/components/impressions-stack";
-import { Button } from "@/components/ui/button";
-import { FormInput } from "@/components/ui/form-input";
+import { useCallback, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import z from "zod";
-import Link from "next/link";
-import { Checkbox } from "@/components/ui/checkbox";
+import { AxiosError } from "axios";
+import toast from "react-hot-toast";
+import {
+  Calendar03Icon,
+  Location01Icon,
+  Ticket01Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
+import SideModal from "@/components/side-modal";
+import SectionHeader from "@/components/section-header";
+import EmptyState from "@/components/empty-state";
+import { FormInput } from "@/components/ui/form-input";
+import CheckoutSteps from "@/components/checkout/checkout-steps";
+import CheckoutActions from "@/components/checkout/checkout-actions";
+import OptionCard from "@/components/checkout/option-card";
+import QuantityStepper from "@/components/checkout/quantity-stepper";
+import ConsentCheck from "@/components/checkout/consent-check";
+import PaymentMethodPicker from "@/components/checkout/payment-method-picker";
+import SummaryCard, { SummaryRow } from "@/components/checkout/summary-card";
+import {
+  CheckoutFooter,
+  CheckoutHeader,
+} from "@/components/checkout/checkout-header";
 import { PublicEvent } from "@/hooks/use-events";
 import { EVENTS_SERVER_URL } from "@/constants";
 import apiClient from "@/lib/api/axios-client";
 import { handleAxiosError } from "@/lib/api/handle-axios-error";
-import { AxiosError } from "axios";
-import toast from "react-hot-toast";
+import { formatAmount, formatDateDisplay } from "@/utils";
 
-// Props type
 interface AddEventsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -60,6 +69,27 @@ const registerSchema = z
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
+type EventPaymentProvider = "PAYSTACK" | "PAYONUS";
+
+const PAYMENT_OPTIONS = [
+  {
+    value: "PAYSTACK",
+    label: "Paystack",
+    hint: "Card, bank transfer or USSD",
+  },
+  {
+    value: "PAYONUS",
+    label: "Fuspay",
+    hint: "Card, bank transfer or USSD",
+  },
+] as const satisfies readonly {
+  value: EventPaymentProvider;
+  label: string;
+  hint: string;
+}[];
+
+const STEPS = ["Tickets", "Details & payment"];
+
 interface RegisterResponse {
   status: string;
   message: string;
@@ -71,7 +101,7 @@ interface RegisterResponse {
       authorizationUrl: string;
       accessCode: string;
       reference: string;
-      provider: "PAYSTACK" | "PAYONUS";
+      provider: EventPaymentProvider;
     };
   };
 }
@@ -81,39 +111,44 @@ export default function CheckOutModal({
   onClose,
   event,
 }: AddEventsModalProps) {
+  const router = useRouter();
+  const tiers = useMemo(() => event.ticketTiers ?? [], [event.ticketTiers]);
+
+  const [currentStep, setCurrentStep] = useState<number>(1);
   const [selectedTickets, setSelectedTickets] = useState<TicketSelection[]>([]);
+  const [paymentMethod, setPaymentMethod] =
+    useState<EventPaymentProvider>("PAYSTACK");
+  const [notificationPermission, setNotificationPermission] = useState({
+    email: false,
+    update: false,
+  });
+  const [loading, setLoading] = useState(false);
 
   const handleTicketSelect = (tierId: string, price: number) => {
-    const existingIndex = selectedTickets.findIndex((t) => t.tierId === tierId);
-    if (existingIndex !== -1) {
-      // Remove ticket if already selected
-      setSelectedTickets(selectedTickets.filter((t) => t.tierId !== tierId));
-    } else {
-      // Add new ticket selection
-      setSelectedTickets([...selectedTickets, { tierId, quantity: 1, price }]);
-    }
+    setSelectedTickets((previous) =>
+      previous.some((ticket) => ticket.tierId === tierId)
+        ? previous.filter((ticket) => ticket.tierId !== tierId)
+        : [...previous, { tierId, quantity: 1, price }],
+    );
   };
 
   const handleQuantityChange = (tierId: string, change: number) => {
-    const tier = event.ticketTiers?.find((t) => t.id === tierId);
+    const tier = tiers.find((item) => item.id === tierId);
     const maxQuantity = tier?.quantityAvailable ?? 10;
 
-    setSelectedTickets(
-      selectedTickets.map((ticket) => {
-        if (ticket.tierId === tierId) {
-          const newQuantity = ticket.quantity + change;
-          if (newQuantity >= 1 && newQuantity <= maxQuantity) {
-            return { ...ticket, quantity: newQuantity };
-          }
-        }
-        return ticket;
+    setSelectedTickets((previous) =>
+      previous.map((ticket) => {
+        if (ticket.tierId !== tierId) return ticket;
+        const nextQuantity = ticket.quantity + change;
+        return nextQuantity >= 1 && nextQuantity <= maxQuantity
+          ? { ...ticket, quantity: nextQuantity }
+          : ticket;
       }),
     );
   };
 
-  const getTicketSelection = (tierId: string) => {
-    return selectedTickets.find((t) => t.tierId === tierId);
-  };
+  const getTicketSelection = (tierId: string) =>
+    selectedTickets.find((ticket) => ticket.tierId === tierId);
 
   const totalPrice = selectedTickets.reduce(
     (sum, ticket) => sum + ticket.price * ticket.quantity,
@@ -124,7 +159,10 @@ export default function CheckOutModal({
     (sum, ticket) => sum + ticket.quantity,
     0,
   );
-  const [currentStep, setCurrentStep] = useState<number>(1);
+
+  const isFree = totalPrice === 0;
+  const hasSelection = selectedTickets.length > 0;
+
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     mode: "onChange",
@@ -135,16 +173,13 @@ export default function CheckOutModal({
       confirmEmail: "",
     },
   });
-  const [notificationPermission, setNotificationPermission] = useState({
-    email: false,
-    update: false,
-  });
-  const [loading, setLoading] = useState(false);
+
   const handleReset = useCallback(() => {
     form.reset();
     setCurrentStep(1);
     setSelectedTickets([]);
     setNotificationPermission({ email: false, update: false });
+    setPaymentMethod("PAYSTACK");
   }, [form]);
 
   const onSubmit = form.handleSubmit(async (values) => {
@@ -167,24 +202,26 @@ export default function CheckOutModal({
           })),
           marketingConsentEvents: notificationPermission.email,
           marketingConsentNews: notificationPermission.update,
-          paymentProvider: "PAYSTACK",
+          paymentProvider: isFree ? "PAYSTACK" : paymentMethod,
           callbackUrl: `${window.location.origin}/preview/events/success`,
         },
       );
 
       const data = res.data.data;
-      console.log(res.data);
       const paymentUrl = data?.payment?.authorizationUrl;
       if (paymentUrl) {
-        // Redirect to Paystack checkout; it returns to callbackUrl on completion
-        window.location.href = paymentUrl;
+        setLoading(false);
+        // Hand off to the provider; it returns to callbackUrl on completion.
+        window.location.assign(paymentUrl);
         return;
       }
       // No payment required (e.g. free ticket) — go straight to success
       toast.success("Registration successful!");
       handleReset();
       onClose();
-      window.location.href = `/preview/events/success?reference=${data?.registrationId ?? ""}`;
+      router.push(
+        `/preview/events/success?reference=${data?.registrationId ?? ""}`,
+      );
     } catch (error) {
       const err = handleAxiosError(error as AxiosError);
       toast.error(err || "Something went wrong");
@@ -192,300 +229,255 @@ export default function CheckOutModal({
     }
   });
 
-  return (
-    <SideModal isOpen={isOpen} onClose={onClose}>
-      <FormProvider {...form}>
-        <div className="space-y-7 pt-14 pb-5">
-          <div className="w-full h-[180px]">
-            <Image
-              src={event?.images?.[0] || ""}
-              alt={event.name}
-              width={1200}
-              height={560}
-              className="w-full h-full object-cover rounded-2xl"
+  const orderSummary = (
+    <SummaryCard
+      total={isFree ? "Free" : formatAmount(totalPrice)}
+      note={
+        hasSelection
+          ? undefined
+          : "Select a ticket tier above to see your total."
+      }
+    >
+      {hasSelection ? (
+        selectedTickets.map((ticket) => {
+          const tier = tiers.find((item) => item.id === ticket.tierId);
+          return (
+            <SummaryRow
+              key={ticket.tierId}
+              label={`${ticket.quantity} × ${tier?.name ?? "Ticket"}`}
+              value={formatAmount(ticket.price * ticket.quantity)}
             />
-          </div>
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-sm lg:text-[58px] mb-3 leading-[100%] text-black font-medium">
-                {event.name}
-              </h2>
+          );
+        })
+      ) : (
+        <SummaryRow label="Tickets" value="None selected" muted />
+      )}
+    </SummaryCard>
+  );
 
-              <div className="flex items-center gap-x-3">
-                <div className="flex items-center gap-x-2">
-                  <HugeiconsIcon
-                    icon={Location01Icon}
-                    size={24}
-                    color="#6F6D6D"
-                  />
-                  <p className="text-sm">
-                    {event.city}, {event.state}
-                  </p>
-                </div>
-                <div className="flex items-center gap-x-2">
-                  <HugeiconsIcon
-                    icon={Calendar03Icon}
-                    size={24}
-                    color="#6F6D6D"
-                  />
-                  <p className="text-sm">
-                    {formatDateDisplay(event.startDate)}
-                  </p>
-                </div>
-                <ImpressionsStack impressions={event.totalImpressions ?? 0} />
-              </div>
-            </div>
+  return (
+    <SideModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Checkout"
+      subtitle={event.name}
+    >
+      <FormProvider {...form}>
+        <div className="space-y-6 pb-2">
+          <CheckoutHeader
+            image={event.images?.[0]}
+            title={event.name}
+            metas={[
+              {
+                icon: Location01Icon,
+                label: [event.city, event.state].filter(Boolean).join(", "),
+              },
+              {
+                icon: Calendar03Icon,
+                label: formatDateDisplay(event.startDate),
+              },
+            ]}
+          />
 
-            <button className="flex items-center my-2 bg-primary gap-x-0.5 rounded-xl px-2.5 py-1.5">
-              <Image
-                src={"/logo-mark.svg"}
-                alt={event.name}
-                width={40}
-                height={40}
-                className="w-5 h-5 object-contain"
-              />
-              <p className="text-sm text-white">Follow</p>
-            </button>
-          </div>
+          <CheckoutSteps
+            current={currentStep}
+            steps={STEPS}
+            onStepClick={setCurrentStep}
+          />
 
-          {/* Buy Ticket Section */}
           {currentStep === 1 && (
-            <>
-              <div className="space-y-4">
-                <h2 className="font-bold text-lg text-primary-text">
-                  Buy Ticket
-                </h2>
-                <div className="flex ">
-                  <div className="h-auto w-1 border-l border-[#6F6D6D]" />
-                  <div className="space-y-3 w-full flex-1">
-                    {event.ticketTiers?.map((tier) => {
-                      const selection = getTicketSelection(tier.id || "");
-                      const isSelected = !!selection;
-                      return (
-                        <div key={tier.id} className={`px-2 transition-all`}>
-                          <div className="flex items-start justify-between">
-                            <h3 className="text-sm ">{tier.name}</h3>
+            <div className="space-y-5">
+              <section className="space-y-3">
+                <SectionHeader
+                  title="Choose your tickets"
+                  subtitle={
+                    tiers.length
+                      ? "Pick a tier, then set how many you need."
+                      : undefined
+                  }
+                />
 
-                            {/* Checkbox - Right Side */}
-                            <div className="flex flex-col justify-end items-end">
-                              <div className="flex items-center gap-x-2">
-                                <p className="text-sm font-bold">
-                                  ₦{tier.price.toLocaleString()}
-                                </p>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleTicketSelect(
-                                      tier.id || "",
-                                      tier.price,
-                                    )
-                                  }
-                                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                                    isSelected
-                                      ? "border-primary"
-                                      : "border-gray-300"
-                                  }`}
-                                >
-                                  {isSelected && (
-                                    <div className="w-2.5 h-2.5 rounded-full bg-primary" />
-                                  )}
-                                </button>
-                              </div>
-                              {isSelected && selection && (
-                                <div className="flex items-center mt-2 gap-x-3">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleQuantityChange(tier.id || "", -1)
-                                    }
-                                    disabled={selection.quantity <= 1}
-                                    className="w-6 h-6 rounded-full bg-neutral-accent hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-bold text-gray-600"
-                                  >
-                                    <HugeiconsIcon
-                                      icon={MinusSignIcon}
-                                      size={16}
-                                      color="#6F6D6D"
-                                    />
-                                  </button>
-                                  <span className="text-center font-semibold">
-                                    {selection.quantity}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleQuantityChange(tier.id || "", 1)
-                                    }
-                                    disabled={
-                                      selection.quantity >=
-                                      tier.quantityAvailable
-                                    }
-                                    className="w-6 h-6 rounded-full bg-neutral-accent hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-bold text-gray-600"
-                                  >
-                                    <HugeiconsIcon
-                                      icon={PlusSignIcon}
-                                      size={16}
-                                      color="#6F6D6D"
-                                    />
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                {tiers.length === 0 ? (
+                  <EmptyState
+                    icon={<HugeiconsIcon icon={Ticket01Icon} size={26} />}
+                    title="No tickets on sale"
+                    description="The organiser hasn't published any ticket tiers for this event yet. Follow the event to be notified when they go live."
+                  />
+                ) : (
+                  <div className="space-y-3" role="radiogroup">
+                    {tiers.map((tier) => {
+                      const tierId = tier.id || "";
+                      const selection = getTicketSelection(tierId);
+                      const soldOut = tier.quantityAvailable <= 0;
+
+                      return (
+                        <OptionCard
+                          key={tierId}
+                          selected={!!selection}
+                          disabled={soldOut}
+                          onSelect={() =>
+                            handleTicketSelect(tierId, tier.price)
+                          }
+                          title={tier.name}
+                          subtitle={
+                            soldOut
+                              ? "Sold out"
+                              : tier.description ||
+                                `${tier.quantityAvailable} available`
+                          }
+                          trailing={
+                            tier.price > 0 ? formatAmount(tier.price) : "Free"
+                          }
+                        >
+                          {selection && (
+                            <QuantityStepper
+                              value={selection.quantity}
+                              max={tier.quantityAvailable}
+                              onChange={(delta) =>
+                                handleQuantityChange(tierId, delta)
+                              }
+                            />
+                          )}
+                        </OptionCard>
                       );
                     })}
                   </div>
-                </div>
-
-                {/* Total and Checkout */}
-                {selectedTickets.length > 0 && (
-                  <Button
-                    onClick={() => setCurrentStep(2)}
-                    className="w-full"
-                    size={"lg"}
-                  >
-                    Checkout ({totalTickets}{" "}
-                    {totalTickets === 1 ? "ticket" : "tickets"} - ₦
-                    {totalPrice.toLocaleString()})
-                  </Button>
                 )}
-              </div>
-              <div>
-                <p className="mb-3 text-sm text-primary-text">
-                  Ticket sales end on {formatDateDisplay(event.startDate)}
-                </p>
-                <div
-                  className="w-full h-[2px]"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(to right, #C8C8C8 8px, transparent 8px)",
-                    backgroundSize: "16px 2px",
-                    backgroundRepeat: "repeat-x",
-                  }}
-                />
-              </div>
-            </>
-          )}
-          <div className="bg-neutral rounded-lg p-2">
-            <h3 className="font-bold text-primary-text text-sm mb-3">
-              Order Summary
-            </h3>
-            {selectedTickets.map((ticket) => {
-              const tier = event.ticketTiers?.find(
-                (t) => t.id === ticket.tierId,
-              );
-              return (
-                <div
-                  key={ticket.tierId}
-                  className="flex mb-1.5 font-normal justify-between"
-                >
-                  <p>
-                    {ticket.quantity} X {tier?.name} Ticket
-                  </p>
-                  <p>₦{(ticket.price * ticket.quantity).toLocaleString()}</p>
-                </div>
-              );
-            })}
-            <div className="flex mt-2 pt-2 border-t border-gray-300 font-bold justify-between">
-              <p>TOTAL</p>
-              <p>₦{totalPrice.toLocaleString()}</p>
+              </section>
+
+              {orderSummary}
+
+              <p className="text-xs text-secondary-text">
+                Ticket sales end on {formatDateDisplay(event.startDate)}.
+              </p>
+
+              <CheckoutActions
+                submitLabel={
+                  hasSelection
+                    ? `Continue with ${totalTickets} ${
+                        totalTickets === 1 ? "ticket" : "tickets"
+                      }`
+                    : "Continue"
+                }
+                submitDisabled={!hasSelection}
+                onSubmit={() => setCurrentStep(2)}
+                hint={
+                  hasSelection ? undefined : "Select at least one ticket tier"
+                }
+              />
             </div>
-          </div>
+          )}
+
           {currentStep === 2 && (
-            <div>
-              <h2 className="text-primary-text text-lg font-bold">
-                Contact Information
-              </h2>
-              <p className="text-sm text-primary-text">
-                <Link href="/login" className="font-bold text-primary">
-                  Login to SpinStrip
-                </Link>{" "}
-                for a better experience
-              </p>
-              <div className="space-y-4 mt-3">
-                <FormInput
-                  control={form.control}
-                  name="firstName"
-                  label="First Name"
-                  placeholder="Enter First name"
-                  type="text"
+            <div className="space-y-6">
+              {orderSummary}
+
+              <section className="space-y-3">
+                <SectionHeader
+                  title="Contact information"
+                  subtitle="Your tickets are sent to this email address."
                 />
-                <FormInput
-                  control={form.control}
-                  name="lastName"
-                  label="Last Name"
-                  placeholder="Enter Last name"
-                  type="text"
-                />
-                <FormInput
-                  control={form.control}
-                  name="email"
-                  label="Email Address"
-                  placeholder="Enter Email Address"
-                />
-                <FormInput
-                  control={form.control}
-                  name="confirmEmail"
-                  label="Confirm Email Address"
-                  placeholder="Confirm Email Address"
-                />
-              </div>
-              <p className="text-sm mt-4 text-[#000000E5]">
-                By clicking “Register”I Agree to the{" "}
-                <Link href="/login" className="font-bold text-primary">
-                  SpinStrip Terms of Service
-                </Link>{" "}
-              </p>
-              <div className="flex gap-x-2 my-3 items-center">
-                <Checkbox
-                  checked={notificationPermission.update}
-                  onCheckedChange={(value) =>
-                    setNotificationPermission((prev) => ({
-                      ...prev,
-                      update: value as boolean,
-                    }))
-                  }
-                />
-                <span className="text-[#000000E5] text-sm">
-                  Keep me updated on more events and news from this event
-                  organizer.
-                </span>
-              </div>
-              <div className="flex gap-x-2 my-2 items-center">
-                <Checkbox
-                  checked={notificationPermission.email}
-                  onCheckedChange={(value) =>
-                    setNotificationPermission((prev) => ({
-                      ...prev,
-                      email: value as boolean,
-                    }))
-                  }
-                />
-                <span className="text-[#000000E5] text-sm">
-                  Send me updates about the best events happening nearby or
-                  online.
-                </span>
-              </div>
-              <Button
-                disabled={!form.formState.isValid || loading}
-                onClick={onSubmit}
-                className="w-[368px] mt-4"
-                size={"lg"}
-              >
-                {loading ? "Processing..." : "Register"}
-              </Button>
-              <div className="flex mt-6 items-center justify-center gap-x-1.5 border-t pt-4">
-                <p className="text-sm">Powered by</p>
-                <Image
-                  src={"/logo-black.svg"}
-                  alt="SpinStrip"
-                  width={100}
-                  height={100}
-                  className="w-[78px] h-[24px] object-contain"
-                />
-              </div>
+                <p className="text-sm text-secondary-text">
+                  <Link href="/login" className="font-bold text-primary">
+                    Log in to SpinStrip
+                  </Link>{" "}
+                  to check out faster next time.
+                </p>
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormInput
+                      control={form.control}
+                      name="firstName"
+                      label="First Name"
+                      placeholder="Enter First name"
+                      type="text"
+                    />
+                    <FormInput
+                      control={form.control}
+                      name="lastName"
+                      label="Last Name"
+                      placeholder="Enter Last name"
+                      type="text"
+                    />
+                  </div>
+                  <FormInput
+                    control={form.control}
+                    name="email"
+                    label="Email Address"
+                    placeholder="Enter Email Address"
+                  />
+                  <FormInput
+                    control={form.control}
+                    name="confirmEmail"
+                    label="Confirm Email Address"
+                    placeholder="Confirm Email Address"
+                  />
+                </div>
+              </section>
+
+              {!isFree && (
+                <section className="space-y-3">
+                  <SectionHeader title="Payment method" />
+                  <PaymentMethodPicker
+                    value={paymentMethod}
+                    onChange={setPaymentMethod}
+                    options={PAYMENT_OPTIONS}
+                  />
+                </section>
+              )}
+
+              <section className="space-y-3">
+                <div className="space-y-3 rounded-2xl border border-background-light bg-background p-4">
+                  <ConsentCheck
+                    id="event-consent-organizer"
+                    checked={notificationPermission.update}
+                    onChange={(value) =>
+                      setNotificationPermission((prev) => ({
+                        ...prev,
+                        update: value,
+                      }))
+                    }
+                  >
+                    Keep me updated on more events and news from this organiser.
+                  </ConsentCheck>
+                  <ConsentCheck
+                    id="event-consent-news"
+                    checked={notificationPermission.email}
+                    onChange={(value) =>
+                      setNotificationPermission((prev) => ({
+                        ...prev,
+                        email: value,
+                      }))
+                    }
+                  >
+                    Send me updates about the best events happening nearby or
+                    online.
+                  </ConsentCheck>
+                </div>
+                <p className="text-xs leading-relaxed text-secondary-text">
+                  By completing this registration you agree to the{" "}
+                  <Link href="/login" className="font-bold text-primary">
+                    SpinStrip Terms of Service
+                  </Link>
+                  .
+                </p>
+              </section>
+
+              <CheckoutActions
+                onBack={() => setCurrentStep(1)}
+                submitLabel={
+                  isFree
+                    ? "Complete registration"
+                    : `Pay ${formatAmount(totalPrice)}`
+                }
+                submitDisabled={!form.formState.isValid}
+                loading={loading}
+                onSubmit={onSubmit}
+              />
             </div>
           )}
+
+          <CheckoutFooter />
         </div>
       </FormProvider>
     </SideModal>

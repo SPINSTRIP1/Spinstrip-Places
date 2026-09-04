@@ -1,6 +1,6 @@
 import { USER_ACCOUNT_URL } from "@/constants";
 import api from "@/lib/api/axios-client";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 export interface MenuItemOption {
   name: string;
@@ -119,6 +119,9 @@ export function usePublicMenu(
       }
     },
     enabled: options?.enabled ?? true,
+    // Paging keeps the current page on screen while the next one
+    // loads, so the grid never collapses back to skeletons.
+    placeholderData: keepPreviousData,
   });
 
   return {
