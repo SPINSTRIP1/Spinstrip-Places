@@ -114,7 +114,11 @@ export const transformPlaceToListing = (
     name: place.name || "Unnamed Place",
     location,
     description: place.description || "",
-    image: place.coverImage || place.images?.[0] || FALLBACK_IMAGE,
+    image:
+      place?.metadata?.logoUrl ||
+      place.coverImage ||
+      place.images?.[0] ||
+      FALLBACK_IMAGE,
     category: placeTypeLabel || "Place",
     meta: facilityCount
       ? `${facilityCount} ${facilityCount === 1 ? "facility" : "facilities"}`
@@ -140,7 +144,9 @@ export const transformEventToListing = (
     .filter((amount: unknown): amount is number => typeof amount === "number");
 
   const date = event.startDate ? formatDateDisplay(event.startDate) : "";
-  const price = prices.length ? `from ${formatAmount(Math.min(...prices))}` : "";
+  const price = prices.length
+    ? `from ${formatAmount(Math.min(...prices))}`
+    : "";
   const meta = [date, price].filter(Boolean).join(" · ");
 
   return {
