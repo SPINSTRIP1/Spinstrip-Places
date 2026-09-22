@@ -27,7 +27,11 @@ interface PlaceCardProps {
  * band on top when a cover image actually exists. A logo never has to
  * carry an empty 4:3 media area on its own.
  */
-export default function PlaceCard({ place, index = 0, onOpen }: PlaceCardProps) {
+export default function PlaceCard({
+  place,
+  index = 0,
+  onOpen,
+}: PlaceCardProps) {
   const cover = place.coverImage || place.images?.[0] || null;
   const logo = place.metadata?.logoUrl || null;
   const type = placeTypeLabel(place.placeType);
@@ -80,10 +84,12 @@ export default function PlaceCard({ place, index = 0, onOpen }: PlaceCardProps) 
 
       <div className="flex flex-1 flex-col p-4 sm:p-5">
         {/* Identity row */}
-        <div className={cn("flex items-start gap-3", cover && "-mt-10 sm:-mt-11")}>
+        <div
+          className={cn("flex items-start gap-3", cover && "-mt-10 sm:-mt-11")}
+        >
           <span
             className={cn(
-              "grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl border bg-white",
+              "grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl ",
               cover
                 ? "border-white shadow-[0_10px_24px_-10px_rgba(15,15,15,0.45)]"
                 : "sec-border shadow-[0_10px_24px_-14px_var(--sec-glow)]",
@@ -94,7 +100,7 @@ export default function PlaceCard({ place, index = 0, onOpen }: PlaceCardProps) 
                 src={logo}
                 alt=""
                 className="h-full w-full"
-                imgClassName="object-contain p-1.5"
+                imgClassName="object-contain"
               />
             ) : (
               <span className="sec-soft sec-text grid h-full w-full place-items-center">

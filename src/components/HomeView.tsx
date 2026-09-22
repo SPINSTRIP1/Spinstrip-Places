@@ -29,11 +29,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  SECTIONS,
-  sectionThemeVars,
-  type SectionKey,
-} from "@/data/listings";
+import { SECTIONS, sectionThemeVars, type SectionKey } from "@/data/listings";
 import {
   EVENT_CATEGORIES,
   EVENT_FEATURED_VALUE,
@@ -171,7 +167,8 @@ export default function HomeView() {
 
   const restaurantNames = useMemo(() => {
     const names = new Map<string, string>();
-    for (const restaurant of restaurants) names.set(restaurant.id, restaurant.name);
+    for (const restaurant of restaurants)
+      names.set(restaurant.id, restaurant.name);
     return names;
   }, [restaurants]);
 
@@ -304,7 +301,10 @@ export default function HomeView() {
             <div className="mb-5 flex items-end justify-between gap-4">
               <div className="min-w-0">
                 <h2 className="font-display flex items-center gap-2.5 text-2xl font-bold text-primary-text sm:text-3xl">
-                  <span aria-hidden className="sec-bg h-6 w-1.5 shrink-0 rounded-full" />
+                  <span
+                    aria-hidden
+                    className="sec-bg h-6 w-1.5 shrink-0 rounded-full"
+                  />
                   {section === "menu" ? "Dishes" : activeSection.label}
                 </h2>
                 <p className="mt-1 text-sm text-secondary-text">
@@ -417,7 +417,10 @@ export default function HomeView() {
                 <div className="mb-5 mt-12 flex items-end justify-between gap-4">
                   <div className="min-w-0">
                     <h2 className="font-display flex items-center gap-2.5 text-2xl font-bold text-primary-text sm:text-3xl">
-                      <span aria-hidden className="sec-bg h-6 w-1.5 shrink-0 rounded-full" />
+                      <span
+                        aria-hidden
+                        className="sec-bg h-6 w-1.5 shrink-0 rounded-full"
+                      />
                       Restaurants
                     </h2>
                     <p className="mt-1 text-sm text-secondary-text">
@@ -474,7 +477,7 @@ export default function HomeView() {
       </main>
 
       <Footer />
-      <BottomNav active={section} onChange={handleSection} />
+      {/* <BottomNav active={section} onChange={handleSection} /> */}
     </div>
   );
 }

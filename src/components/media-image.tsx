@@ -39,12 +39,7 @@ export default function MediaImage({
   const resolved = status === "error" || !src ? FALLBACK_IMAGE : src;
 
   return (
-    <div
-      className={cn(
-        "relative overflow-hidden bg-primary-accent/40",
-        className,
-      )}
-    >
+    <div className={cn("relative overflow-hidden", className)}>
       {status === "loading" && (
         <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-primary-accent/70 via-background-light/60 to-primary-accent/70" />
       )}
