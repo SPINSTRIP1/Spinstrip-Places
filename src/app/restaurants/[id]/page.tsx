@@ -1,36 +1,28 @@
-import { notFound } from 'next/navigation'
-import type { Metadata } from 'next'
-import RestaurantPage from '@/components/restaurant/RestaurantPage'
-import { RESTAURANTS } from '@/data/restaurants'
+import { Suspense } from "react";
+import type { Metadata } from "next";
+import Loader from "@/components/loader";
+import RestaurantPage from "@/components/restaurant/RestaurantPage";
 
 interface PageProps {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }
 
-export function generateStaticParams() {
-  return RESTAURANTS.map((r) => ({ id: r.id }))
-}
+export const metadata: Metadata = {
+  title: "Restaurant",
+  description: "Build your order from this kitchen's menu and pay on SpinStrip.",
+};
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { id } = await params
-  const restaurant = RESTAURANTS.find((r) => r.id === id)
-  if (!restaurant) return { title: 'Restaurant not found' }
-
-  return {
-    title: restaurant.name,
-    description: restaurant.tagline,
-    openGraph: {
-      title: `${restaurant.name} — SpinStrip Places`,
-      description: restaurant.tagline,
-      images: [{ url: restaurant.cover }],
-    },
-  }
-}
-
+/**
+ * `id` is the merchant's user id — the only restaurant key the menu API
+ * exposes. Everything else about the storefront is loaded on the client.
+ */
 export default async function Page({ params }: PageProps) {
-  const { id } = await params
-  const restaurant = RESTAURANTS.find((r) => r.id === id)
-  if (!restaurant) notFound()
+  const { id } = await params;
 
-  return <RestaurantPage restaurant={restaurant} />
+  // useSearchParams() inside RestaurantPage needs a Suspense boundary.
+  return (
+    <Suspense fallback={<Loader label="Loading the menu…" />}>
+      <RestaurantPage merchantId={id} />
+    </Suspense>
+  );
 }

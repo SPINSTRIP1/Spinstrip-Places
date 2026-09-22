@@ -1,19 +1,39 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import AutoScroll from "embla-carousel-auto-scroll";
 import { useRouter } from "next/navigation";
+import { SearchX, Store, UtensilsCrossed } from "lucide-react";
 import AuroraBackground from "@/components/AuroraBackground";
 import BottomNav from "@/components/BottomNav";
 import CategoryChips from "@/components/CategoryChips";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
-import ListingCard from "@/components/ListingCard";
-import ListingCardSkeletonGrid from "@/components/listing-card-skeleton";
 import PaginationBar from "@/components/pagination-bar";
-import { Skeleton } from "@/components/ui/skeleton";
 import SectionTabs from "@/components/SectionTabs";
-import { SECTIONS, type Listing, type SectionKey } from "@/data/listings";
+import PlaceCard from "@/components/cards/place-card";
+import EventCard from "@/components/cards/event-card";
+import DishCard from "@/components/cards/dish-card";
+import RestaurantCard from "@/components/cards/restaurant-card";
+import {
+  DishRailSkeleton,
+  ListingSkeletonGrid,
+  RestaurantListSkeleton,
+} from "@/components/cards/card-skeletons";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  SECTIONS,
+  sectionThemeVars,
+  type SectionKey,
+} from "@/data/listings";
 import {
   EVENT_CATEGORIES,
   EVENT_FEATURED_VALUE,
@@ -25,16 +45,11 @@ import {
   PLACE_SORTS,
   type SortKey,
 } from "@/constants";
-import { usePublicPlaces } from "@/hooks/use-places";
-import { usePublicEvents } from "@/hooks/use-events";
-import { usePublicMenu } from "@/hooks/use-menu";
+import { usePublicPlaces, type PublicPlace } from "@/hooks/use-places";
+import { usePublicEvents, type PublicEventListItem } from "@/hooks/use-events";
+import { usePublicMenu, type PublicMenuItem } from "@/hooks/use-menu";
+import { useRestaurants } from "@/hooks/use-restaurants";
 import { useDebouncedValue } from "@/hooks/use-debounce";
-import {
-  transformEventToListing,
-  transformMenuItemToListing,
-  transformPlaceToListing,
-} from "@/utils";
-import { SearchX } from "lucide-react";
 
 const CATEGORY_OPTIONS = {
   places: PLACE_CATEGORIES,
@@ -128,6 +143,38 @@ export default function HomeView() {
     { enabled: section === "menu" },
   );
 
+  // The restaurant list sits under the dish rail. It follows the search box
+  // but not the dish category/sort — a kitchen doesn't stop existing because
+  // you're only looking at breakfast.
+  const { restaurants, isLoading: restaurantsLoading } = useRestaurants(
+    { search: search || undefined },
+    { enabled: section === "menu" },
+  );
+
+  // The dish rail drifts on its own until the customer touches it: a click
+  // or drag stops it for good, and the loop means it never runs out of road.
+  const autoScroll = useMemo(() => {
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    return reduceMotion
+      ? []
+      : [
+          AutoScroll({
+            speed: 1.1,
+            startDelay: 900,
+            stopOnInteraction: true,
+            stopOnMouseEnter: false,
+          }),
+        ];
+  }, []);
+
+  const restaurantNames = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const restaurant of restaurants) names.set(restaurant.id, restaurant.name);
+    return names;
+  }, [restaurants]);
+
   const handleSection = (s: SectionKey) => {
     setSection(s);
     setCategory("");
@@ -140,11 +187,23 @@ export default function HomeView() {
     resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const visible: Listing[] = useMemo(() => {
-    if (section === "places") return places.map(transformPlaceToListing);
-    if (section === "events") return events.map(transformEventToListing);
-    return menuItems.map(transformMenuItemToListing);
-  }, [section, places, events, menuItems]);
+  const clearFilters = () => {
+    if (page > 1) {
+      handlePage(1);
+      return;
+    }
+    setQuery("");
+    setCategory("");
+  };
+
+  const openPlace = (place: PublicPlace) =>
+    router.push(`/preview/places?id=${place.id}`);
+  const openEvent = (event: PublicEventListItem) =>
+    router.push(`/preview/events?id=${event.id}`);
+  // Dishes open inside their restaurant so every add lands in that
+  // kitchen's cart and the customer can keep building an order.
+  const openDish = (item: PublicMenuItem) =>
+    router.push(`/restaurants/${item.userId}?item=${item.id}`);
 
   const total =
     section === "places"
@@ -152,6 +211,13 @@ export default function HomeView() {
       : section === "events"
         ? eventsCount
         : menuCount;
+
+  const visibleCount =
+    section === "places"
+      ? places.length
+      : section === "events"
+        ? events.length
+        : menuItems.length;
 
   // isLoading is true only while the active section has no data yet, so a
   // background refetch never swaps rendered cards for the spinner.
@@ -180,25 +246,43 @@ export default function HomeView() {
         : menuFetching);
 
   const activeSection = SECTIONS.find((s) => s.key === section)!;
+  const gridKey = `${section}-${category}-${sort}-${search}-${page}`;
 
-  const handleOpen = (listing: Listing) => {
-    if (section === "menu") {
-      // There's no single-item endpoint, so the preview loads the item
-      // through its merchant's menu and needs the merchant id alongside it.
-      const item = menuItems.find((menuItem) => menuItem.id === listing.id);
-      if (!item) return;
-      router.push(`/preview/menu?id=${item.id}&merchant=${item.userId}`);
-      return;
-    }
-    if (section === "events") {
-      router.push(`/preview/events?id=${listing.id}`);
-      return;
-    }
-    router.push(`/preview/places?id=${listing.id}`);
-  };
+  const emptyState = (
+    <div className="section-swap flex flex-col items-center gap-3 rounded-3xl border border-dashed border-neutral-accent bg-white/60 py-16 text-center">
+      <span className="sec-soft sec-text grid h-14 w-14 place-items-center rounded-full">
+        <SearchX className="h-6 w-6" />
+      </span>
+      <p className="font-display text-lg font-semibold text-primary-text">
+        {page > 1 ? "Nothing on this page" : "Nothing found"}
+      </p>
+      <p className="max-w-xs text-sm text-secondary-text">
+        {page > 1
+          ? "This page is past the end of the results — they may have changed since you loaded them."
+          : "Try a different search term or clear the category filter."}
+      </p>
+      <button
+        onClick={clearFilters}
+        className="btn-press sec-bg mt-2 rounded-full px-5 py-2 text-sm font-semibold text-white shadow-[0_8px_24px_-8px_var(--sec-glow)]"
+      >
+        {page > 1 ? "Back to first page" : "Clear filters"}
+      </button>
+    </div>
+  );
+
+  const pager = !isLoading && visibleCount > 0 && (
+    <PaginationBar
+      page={page}
+      lastPage={lastPage}
+      total={total}
+      pageSize={PAGE_SIZE}
+      onPageChange={handlePage}
+      busy={isPaging}
+    />
+  );
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" style={sectionThemeVars(section)}>
       <AuroraBackground />
       <Header />
 
@@ -217,77 +301,174 @@ export default function HomeView() {
           />
 
           <section className="mx-auto mt-8 max-w-7xl px-4 sm:px-6">
-            <div className="mb-5 flex items-end justify-between">
-              <div>
-                <h2 className="font-display text-2xl font-bold text-[#0F0F0F] sm:text-3xl">
-                  {activeSection.label}
+            <div className="mb-5 flex items-end justify-between gap-4">
+              <div className="min-w-0">
+                <h2 className="font-display flex items-center gap-2.5 text-2xl font-bold text-primary-text sm:text-3xl">
+                  <span aria-hidden className="sec-bg h-6 w-1.5 shrink-0 rounded-full" />
+                  {section === "menu" ? "Dishes" : activeSection.label}
                 </h2>
-                <p className="mt-1 text-sm text-[#6F6D6D]">
+                <p className="mt-1 text-sm text-secondary-text">
                   {activeSection.blurb}
                 </p>
               </div>
               {isLoading ? (
                 <Skeleton className="h-[26px] w-20 shrink-0 rounded-full" />
               ) : (
-                <span className="shrink-0 rounded-full border border-background-light bg-white/70 px-3 py-1 text-xs font-medium text-[#6F6D6D]">
+                <span className="sec-soft sec-text shrink-0 rounded-full px-3 py-1 text-xs font-semibold">
                   {total} {total === 1 ? "result" : "results"}
                 </span>
               )}
             </div>
 
-            {isLoading ? (
-              <ListingCardSkeletonGrid />
-            ) : visible.length > 0 ? (
-              <div
-                key={`${section}-${category}-${sort}-${search}-${page}`}
-                className="section-swap grid grid-cols-1 gap-5 pb-6 sm:grid-cols-2 lg:grid-cols-3"
-              >
-                {visible.map((l, i) => (
-                  <ListingCard
-                    key={l.id}
-                    listing={l}
-                    index={i}
-                    onOpen={handleOpen}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="section-swap flex flex-col items-center gap-3 rounded-3xl border border-dashed border-neutral-accent bg-white/60 py-16 text-center">
-                <SearchX className="h-8 w-8 text-primary-light" />
-                <p className="font-display text-lg font-semibold text-[#0F0F0F]">
-                  {page > 1 ? "Nothing on this page" : "Nothing found"}
-                </p>
-                <p className="max-w-xs text-sm text-[#6F6D6D]">
-                  {page > 1
-                    ? "This page is past the end of the results — they may have changed since you loaded them."
-                    : "Try a different search term or clear the category filter."}
-                </p>
-                <button
-                  onClick={() => {
-                    if (page > 1) {
-                      handlePage(1);
-                      return;
-                    }
-                    setQuery("");
-                    setCategory("");
-                  }}
-                  className="btn-press mt-2 rounded-full bg-[#6932E2] px-5 py-2 text-sm font-semibold text-white hover:bg-[#7C4BE8]"
+            {/* Places */}
+            {section === "places" &&
+              (isLoading ? (
+                <ListingSkeletonGrid variant="profile" />
+              ) : places.length > 0 ? (
+                <div
+                  key={gridKey}
+                  className="section-swap grid grid-cols-1 gap-5 pb-6 sm:grid-cols-2 lg:grid-cols-3"
                 >
-                  {page > 1 ? "Back to first page" : "Clear filters"}
-                </button>
-              </div>
+                  {places.map((place, i) => (
+                    <PlaceCard
+                      key={place.id}
+                      place={place}
+                      index={i}
+                      onOpen={openPlace}
+                    />
+                  ))}
+                </div>
+              ) : (
+                emptyState
+              ))}
+
+            {/* Events */}
+            {section === "events" &&
+              (isLoading ? (
+                <ListingSkeletonGrid />
+              ) : events.length > 0 ? (
+                <div
+                  key={gridKey}
+                  className="section-swap grid grid-cols-1 gap-5 pb-6 sm:grid-cols-2 lg:grid-cols-3"
+                >
+                  {events.map((event, i) => (
+                    <EventCard
+                      key={event.id}
+                      event={event}
+                      index={i}
+                      onOpen={openEvent}
+                    />
+                  ))}
+                </div>
+              ) : (
+                emptyState
+              ))}
+
+            {/* Restaurants: a rail of dishes, then the kitchens behind them */}
+            {section === "menu" && (
+              <>
+                {isLoading ? (
+                  <DishRailSkeleton />
+                ) : menuItems.length > 0 ? (
+                  <Carousel
+                    key={gridKey}
+                    opts={{ align: "start", loop: true, dragFree: true }}
+                    plugins={autoScroll}
+                    className="section-swap"
+                  >
+                    <CarouselContent className="-ml-4 pb-2">
+                      {menuItems.map((item, i) => (
+                        <CarouselItem
+                          key={item.id}
+                          className="basis-[86%] pl-4 sm:basis-[56%] lg:basis-[38%] xl:basis-[29%]"
+                        >
+                          <DishCard
+                            item={item}
+                            index={i}
+                            restaurantName={restaurantNames.get(item.userId)}
+                            onOpen={openDish}
+                          />
+                        </CarouselItem>
+                      ))}
+                    </CarouselContent>
+                    <div className="mt-3 flex items-center justify-between">
+                      <p className="flex items-center gap-1.5 text-xs text-secondary-text">
+                        <UtensilsCrossed className="sec-text h-3.5 w-3.5" />
+                        Tap a dish to order from its kitchen · drag to browse
+                      </p>
+                      <div className="hidden items-center gap-2 sm:flex">
+                        <CarouselPrevious
+                          variant="outline"
+                          className="static h-9 w-9 translate-y-0 rounded-full"
+                        />
+                        <CarouselNext
+                          variant="outline"
+                          className="static h-9 w-9 translate-y-0 rounded-full"
+                        />
+                      </div>
+                    </div>
+                  </Carousel>
+                ) : (
+                  emptyState
+                )}
+
+                {pager}
+
+                <div className="mb-5 mt-12 flex items-end justify-between gap-4">
+                  <div className="min-w-0">
+                    <h2 className="font-display flex items-center gap-2.5 text-2xl font-bold text-primary-text sm:text-3xl">
+                      <span aria-hidden className="sec-bg h-6 w-1.5 shrink-0 rounded-full" />
+                      Restaurants
+                    </h2>
+                    <p className="mt-1 text-sm text-secondary-text">
+                      Pick a kitchen, build your order, then pay in one go.
+                    </p>
+                  </div>
+                  {restaurantsLoading ? (
+                    <Skeleton className="h-[26px] w-24 shrink-0 rounded-full" />
+                  ) : (
+                    <span className="sec-soft sec-text flex shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold">
+                      <Store className="h-3.5 w-3.5" />
+                      {restaurants.length}{" "}
+                      {restaurants.length === 1 ? "kitchen" : "kitchens"}
+                    </span>
+                  )}
+                </div>
+
+                {restaurantsLoading ? (
+                  <RestaurantListSkeleton />
+                ) : restaurants.length > 0 ? (
+                  <div
+                    key={`restaurants-${search}`}
+                    className="section-swap grid gap-4 pb-6 lg:grid-cols-2"
+                  >
+                    {restaurants.map((restaurant, i) => (
+                      <RestaurantCard
+                        key={restaurant.id}
+                        restaurant={restaurant}
+                        index={i}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="section-swap flex flex-col items-center gap-3 rounded-3xl border border-dashed border-neutral-accent bg-white/60 py-14 text-center">
+                    <span className="sec-soft sec-text grid h-14 w-14 place-items-center rounded-full">
+                      <Store className="h-6 w-6" />
+                    </span>
+                    <p className="font-display text-lg font-semibold text-primary-text">
+                      No kitchens match
+                    </p>
+                    <p className="max-w-xs text-sm text-secondary-text">
+                      {search
+                        ? "No restaurant serves a dish matching your search yet."
+                        : "Restaurants appear here as soon as they publish a menu."}
+                    </p>
+                  </div>
+                )}
+              </>
             )}
 
-            {!isLoading && visible.length > 0 && (
-              <PaginationBar
-                page={page}
-                lastPage={lastPage}
-                total={total}
-                pageSize={PAGE_SIZE}
-                onPageChange={handlePage}
-                busy={isPaging}
-              />
-            )}
+            {section !== "menu" && pager}
           </section>
         </div>
       </main>

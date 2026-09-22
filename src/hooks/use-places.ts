@@ -167,10 +167,28 @@ export interface PublicFacility {
   fees?: PublicFacilityFee[];
 }
 
-export interface PublicPlace extends Omit<Place, "coverImage" | "facilities"> {
-  coverImage: string;
-  images: string[];
+/**
+ * Free-form merchant metadata attached to a public place. Bulk-imported
+ * merchants carry a logo and business category here rather than a cover
+ * image, so the cards lean on `logoUrl` when `coverImage` is empty.
+ */
+export interface PublicPlaceMetadata {
+  logoUrl?: string | null;
+  businessCategory?: string | null;
+  businessSubCategory?: string | null;
+  amenities?: string | null;
+  rating?: string | null;
+  category?: string | null;
+  source?: string | null;
+}
+
+export interface PublicPlace
+  extends Omit<Place, "coverImage" | "facilities" | "metadata"> {
+  coverImage: string | null;
+  images: string[] | null;
   facilities?: PublicFacility[];
+  metadata?: PublicPlaceMetadata | null;
+  publishedAt?: string | null;
 }
 
 /** Body accepted by `POST /places/public/book`. */

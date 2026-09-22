@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { QueryProvider } from "@/lib/query-provider";
+import Toaster from "@/components/toaster";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -27,7 +28,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sf-pro antialiased">
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          {children}
+          <Toaster />
+        </QueryProvider>
       </body>
     </html>
   );

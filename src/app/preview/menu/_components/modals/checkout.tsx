@@ -8,7 +8,9 @@ import z from "zod";
 import { AxiosError } from "axios";
 import toast from "react-hot-toast";
 import {
+  Delete02Icon,
   PackageIcon,
+  ShoppingBasket01Icon,
   SpoonAndForkIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -19,7 +21,7 @@ import EmptyState from "@/components/empty-state";
 import { FormInput } from "@/components/ui/form-input";
 import CheckoutSteps from "@/components/checkout/checkout-steps";
 import CheckoutActions from "@/components/checkout/checkout-actions";
-import OptionCard from "@/components/checkout/option-card";
+import MediaImage from "@/components/media-image";
 import QuantityStepper from "@/components/checkout/quantity-stepper";
 import PaymentMethodPicker from "@/components/checkout/payment-method-picker";
 import SummaryCard, { SummaryRow } from "@/components/checkout/summary-card";
@@ -62,6 +64,8 @@ interface CheckOutModalProps {
   onCartChange: (updater: (previous: MenuCart) => MenuCart) => void;
   /** Signed-in user, when there is one. Sent as `userId`. */
   userId?: string;
+  /** Storefront name, printed on the receipt and in the panel header. */
+  restaurantName?: string;
 }
 
 /**
@@ -127,6 +131,7 @@ export default function CheckOutModal({
   cart,
   onCartChange,
   userId,
+  restaurantName,
 }: CheckOutModalProps) {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [paymentMethod, setPaymentMethod] =
@@ -157,14 +162,11 @@ export default function CheckOutModal({
   const totalItems = lines.reduce((sum, line) => sum + line.quantity, 0);
   const hasSelection = lines.length > 0;
 
-  const toggleItem = (menuItem: PublicMenuItem) => {
+  const removeItem = (menuItem: PublicMenuItem) => {
     onCartChange((previous) => {
-      if (previous[menuItem.id]) {
-        const next = { ...previous };
-        delete next[menuItem.id];
-        return next;
-      }
-      return { ...previous, [menuItem.id]: 1 };
+      const next = { ...previous };
+      delete next[menuItem.id];
+      return next;
     });
   };
 
@@ -207,6 +209,7 @@ export default function CheckOutModal({
       })),
     };
     if (userId) payload.userId = userId;
+    if (restaurantName) payload.restaurantName = restaurantName;
 
     setLoading(true);
     try {
@@ -274,7 +277,7 @@ export default function CheckOutModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Checkout"
-      subtitle={item.name}
+      subtitle={restaurantName ?? item.name}
     >
       <FormProvider {...form}>
         <div className="space-y-6 pb-2">
@@ -303,48 +306,96 @@ export default function CheckOutModal({
             <div className="space-y-5">
               <section className="space-y-3">
                 <SectionHeader
-                  title="Build your order"
-                  subtitle="Pick dishes from this kitchen, then set how many portions."
+                  title="Your order"
+                  subtitle={
+                    hasSelection
+                      ? "Adjust portions or remove a dish before you pay."
+                      : undefined
+                  }
+                  badge={hasSelection ? `${totalItems}` : undefined}
                 />
 
-                {orderableItems.length === 0 ? (
+                {!hasSelection ? (
                   <EmptyState
-                    icon={<HugeiconsIcon icon={SpoonAndForkIcon} size={26} />}
-                    title="Nothing available right now"
-                    description="This restaurant has no dishes available to order at the moment. Check back later."
+                    icon={<HugeiconsIcon icon={ShoppingBasket01Icon} size={26} />}
+                    title="Your order is empty"
+                    description="Close this panel and tap a dish to add it to your order."
+                    action={
+                      <button
+                        type="button"
+                        onClick={onClose}
+                        className="btn-press rounded-full bg-primary px-5 py-2 text-sm font-bold text-white"
+                      >
+                        Back to the menu
+                      </button>
+                    }
                   />
                 ) : (
-                  <div className="space-y-3">
-                    {orderableItems.map((menuItem) => {
-                      const quantity = cart[menuItem.id];
-                      return (
-                        <OptionCard
-                          key={menuItem.id}
-                          selected={!!quantity}
-                          onSelect={() => toggleItem(menuItem)}
-                          image={menuItem.images?.[0]}
-                          title={menuItem.name}
-                          subtitle={
-                            menuItem.quantity === null
-                              ? formatEnumLabel(menuItem.category)
-                              : `${menuItem.quantity} left`
-                          }
-                          trailing={formatAmount(menuItem.price)}
-                        >
-                          {quantity ? (
-                            <QuantityStepper
-                              label="Portions"
-                              value={quantity}
-                              max={maxQuantity(menuItem)}
-                              onChange={(delta) =>
-                                changeQuantity(menuItem, delta)
-                              }
-                            />
-                          ) : null}
-                        </OptionCard>
-                      );
-                    })}
-                  </div>
+                  <ul className="space-y-3">
+                    {lines.map((line) => (
+                      <li
+                        key={line.item.id}
+                        className="rounded-2xl border border-background-light bg-white p-3"
+                      >
+                        <div className="flex items-start gap-x-3">
+                          <MediaImage
+                            src={line.item.images?.[0]}
+                            alt={line.item.name}
+                            className="h-16 w-16 shrink-0 rounded-xl"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-bold text-primary-text">
+                              {line.item.name}
+                            </p>
+                            <p className="mt-0.5 truncate text-xs text-secondary-text">
+                              {formatEnumLabel(line.item.category)}
+                              {line.item.quantity !== null &&
+                                ` · ${line.item.quantity} left`}
+                            </p>
+                            <p className="mt-1 text-xs text-secondary-text">
+                              {formatAmount(line.item.price)} each
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 flex-col items-end gap-y-2">
+                            <p className="text-base font-bold text-primary-text">
+                              {formatAmount(line.subtotal)}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => removeItem(line.item)}
+                              aria-label={`Remove ${line.item.name}`}
+                              className="flex items-center gap-x-1 rounded-full px-2 py-1 text-xs font-semibold text-red-500 transition-colors hover:bg-red-50"
+                            >
+                              <HugeiconsIcon
+                                icon={Delete02Icon}
+                                size={14}
+                                color="currentColor"
+                              />
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                        <div className="mt-3 rounded-xl bg-background">
+                          <QuantityStepper
+                            label="Portions"
+                            value={line.quantity}
+                            max={maxQuantity(line.item)}
+                            onChange={(delta) => changeQuantity(line.item, delta)}
+                          />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {hasSelection && (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="w-full rounded-2xl border border-dashed border-background-light py-2.5 text-sm font-bold text-primary transition-colors hover:border-primary hover:bg-primary-accent/40"
+                  >
+                    + Add more dishes
+                  </button>
                 )}
               </section>
 
@@ -364,7 +415,7 @@ export default function CheckOutModal({
                 }
                 submitDisabled={!hasSelection}
                 onSubmit={() => setCurrentStep(2)}
-                hint={hasSelection ? undefined : "Add at least one dish"}
+                hint={hasSelection ? undefined : "Your order is empty"}
               />
             </div>
           )}

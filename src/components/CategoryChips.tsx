@@ -22,6 +22,7 @@ const SORTS: { key: SortKey; label: string; icon: React.ReactNode }[] = [
   { key: "az", label: "A – Z", icon: <ArrowDownAZ className="h-3.5 w-3.5" /> },
 ];
 
+/** Filter chips; the active chip takes the current section's colour. */
 export default function CategoryChips({
   categories,
   active,
@@ -39,8 +40,8 @@ export default function CategoryChips({
               onClick={() => onChange(c.value)}
               className={`chip shrink-0 rounded-full border px-4 py-2 text-sm font-medium ${
                 active === c.value
-                  ? "chip-active border-transparent bg-[#6932E2] text-white"
-                  : "border-background-light bg-white/70 text-[#6F6D6D] hover:border-primary-light hover:text-[#0F0F0F]"
+                  ? "chip-active sec-bg border-transparent text-white"
+                  : "border-background-light bg-white/70 text-secondary-text hover:border-[color:var(--sec-border)] hover:text-primary-text"
               }`}
             >
               {c.label}
@@ -55,8 +56,8 @@ export default function CategoryChips({
             onClick={() => onSort(s.key)}
             className={`chip flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
               sort === s.key
-                ? "bg-primary-accent text-[#6932E2]"
-                : "text-[#6F6D6D] hover:text-[#0F0F0F]"
+                ? "sec-soft sec-text"
+                : "text-secondary-text hover:text-primary-text"
             }`}
           >
             {s.icon}

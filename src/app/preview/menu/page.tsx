@@ -25,40 +25,14 @@ import MetaChip from "@/components/meta-chip";
 import Loader from "@/components/loader";
 import { Button } from "@/components/ui/button";
 import CheckOutModal, { MenuCart } from "./_components/modals/checkout";
+import { isMenuItemOrderable, usePublicMenuItem } from "@/hooks/use-menu";
 import {
-  isMenuItemOrderable,
-  PublicMenuItem,
-  usePublicMenuItem,
-} from "@/hooks/use-menu";
-import { formatAmount, formatEnumLabel } from "@/utils";
+  describeAvailability,
+  formatAmount,
+  formatEnumLabel,
+  menuStockLabel as stockLabel,
+} from "@/utils";
 import { cn } from "@/lib/utils";
-
-/** One-line summary of when the kitchen serves this item. */
-function describeAvailability(item: PublicMenuItem) {
-  switch (item.availabilityType) {
-    case "ON_DEMAND":
-      return "Made to order";
-    case "SPECIFIC_DAYS_TIME": {
-      const schedule = item.availabilitySchedule;
-      if (!schedule) return "Selected days";
-      const days = schedule.days?.map((day) => day.slice(0, 3)).join(", ");
-      const hours =
-        schedule.startTime && schedule.endTime
-          ? `${schedule.startTime}–${schedule.endTime}`
-          : "";
-      return [days, hours].filter(Boolean).join(" · ") || "Selected days";
-    }
-    default:
-      return "Available all day";
-  }
-}
-
-function stockLabel(item: PublicMenuItem) {
-  if (item.status !== "AVAILABLE") return formatEnumLabel(item.status);
-  if (item.quantity === null) return "In stock";
-  if (item.quantity <= 0) return "Sold out";
-  return `${item.quantity.toLocaleString()} left`;
-}
 
 function MenuPageContent() {
   const router = useRouter();
@@ -225,9 +199,11 @@ function MenuPageContent() {
             title="More from this kitchen"
             subtitle={
               moreFromKitchen.length
-                ? "Add any of these to the same order at checkout."
+                ? "Open any of these to add it to the same order."
                 : undefined
             }
+            href={`/restaurants/${item.userId}`}
+            linkLabel="View restaurant"
           />
           {moreFromKitchen.length === 0 ? (
             <EmptyState

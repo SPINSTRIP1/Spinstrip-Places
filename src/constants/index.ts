@@ -5,6 +5,7 @@ import {
   BankIcon,
   BeachIcon,
   Bus01Icon,
+  Coffee01Icon,
   ChurchIcon,
   ComputerDesk02Icon,
   DepartementIcon,
@@ -23,6 +24,9 @@ import {
   Leaf01Icon,
   PartyIcon,
   PoliceStationIcon,
+  Restaurant01Icon,
+  Restaurant02Icon,
+  ShoppingBasket01Icon,
 } from "@hugeicons/core-free-icons";
 
 export const SERVER_URL = "https://spinstrip-merchant-gateway.fly.dev/api/v1";
@@ -33,6 +37,11 @@ export const MENU_API_URL = "https://spinstrip-menu.fly.dev/api/v1";
 export const PLACE_TYPES = [
   { label: "Hotel", value: "HOTEL", icon: Hotel02Icon },
   { label: "Short Let", value: "SHORT_LET", icon: DepartementIcon },
+  { label: "Restaurant", value: "RESTAURANT", icon: Restaurant01Icon },
+  { label: "Cafe", value: "CAFE", icon: Coffee01Icon },
+  { label: "Lounge Bar", value: "LOUNGE_BAR", icon: Restaurant02Icon },
+  { label: "Nightclub", value: "NIGHTCLUB", icon: PartyIcon },
+  { label: "Supermarket", value: "SUPERMARKET", icon: ShoppingBasket01Icon },
   { label: "Beach Resort", value: "BEACH_RESORT", icon: BeachIcon },
   // {
   //   label: "Recreation Center",
@@ -103,11 +112,17 @@ export interface FilterOption {
  * `placeType` values accepted by `GET /places/public`. Anything outside
  * this enum is rejected with a 400, so the "Other" entry in PLACE_TYPES
  * is excluded and RECREATION_CENTER (valid server-side, commented out of
- * PLACE_TYPES) is added back.
+ * PLACE_TYPES) is added back. RESTAURANT, CAFE, LOUNGE_BAR, NIGHTCLUB and
+ * SUPERMARKET are accepted by the live API and appear in published data.
  */
 const PLACE_TYPE_ENUM = [
   "HOTEL",
   "SHORT_LET",
+  "RESTAURANT",
+  "CAFE",
+  "LOUNGE_BAR",
+  "NIGHTCLUB",
+  "SUPERMARKET",
   "BEACH_RESORT",
   "RECREATION_CENTER",
   "BUSINESS_HUB",

@@ -219,7 +219,7 @@ function PlacesPageContent() {
                       key={facility.id}
                       title={facility.name}
                       description={facility.description}
-                      imgUrl={facility.images?.[0] || place.coverImage}
+                      imgUrl={facility.images?.[0] || place.coverImage || ""}
                       facilityType={facility.facilityCategory}
                       accessType={facility.accessType || ""}
                       price={facility.fees?.[0]?.amount ?? 0}

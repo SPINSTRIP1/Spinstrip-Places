@@ -1,157 +1,236 @@
 "use client";
 
-import CartSheet, { type CartLine } from "@/components/restaurant/CartSheet";
-import ItemSheet from "@/components/restaurant/ItemSheet";
-import MenuItemCard from "@/components/restaurant/MenuItemCard";
-import RestaurantLogo from "@/components/restaurant/RestaurantLogo";
-import {
-  discounted,
-  formatNaira,
-  type MenuItem,
-  type Restaurant,
-} from "@/data/restaurants";
-import {
-  ArrowLeft,
-  BadgePercent,
-  MapPin,
-  Search,
-  SearchX,
-  ShoppingBag,
-  Star,
-} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import toast from "react-hot-toast";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Clock3,
+  Flame,
+  MapPin,
+  Plus,
+  Search,
+  SearchX,
+  ShoppingBag,
+  UtensilsCrossed,
+} from "lucide-react";
+import AuroraBackground from "@/components/AuroraBackground";
+import EmptyState from "@/components/empty-state";
+import Loader from "@/components/loader";
+import MediaImage from "@/components/media-image";
+import DishCard from "@/components/cards/dish-card";
+import ItemSheet, { maxQuantity } from "@/components/restaurant/ItemSheet";
+import RestaurantLogo from "@/components/restaurant/RestaurantLogo";
+import { Button } from "@/components/ui/button";
+import CheckOutModal, {
+  type MenuCart,
+} from "@/app/preview/menu/_components/modals/checkout";
+import { sectionThemeVars } from "@/data/listings";
+import { isMenuItemOrderable, type PublicMenuItem } from "@/hooks/use-menu";
+import { useRestaurant } from "@/hooks/use-restaurants";
+import { cn } from "@/lib/utils";
+import { formatEnumLabel, formatPrice, getOpenStatus } from "@/utils";
 
 interface Props {
-  restaurant: Restaurant;
+  merchantId: string;
 }
 
-export default function RestaurantPage({ restaurant }: Props) {
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("All");
-  const [openItem, setOpenItem] = useState<MenuItem | null>(null);
-  const [cartOpen, setCartOpen] = useState(false);
-  const [lines, setLines] = useState<CartLine[]>([]);
-  const [toast, setToast] = useState("");
-  const restored = useRef(false);
+const ALL = "All";
 
-  // The page is server-rendered, so the saved cart can only be read once we are
-  // on the client — reading it during render would break hydration.
+const cartKey = (merchantId: string) => `spinstrip:cart:${merchantId}`;
+
+/**
+ * Restaurant storefront. The order lives here, not in the checkout: the
+ * customer adds as many dishes as they like, reviews them with "Place
+ * order", then pays. One cart per restaurant, persisted per restaurant.
+ */
+export default function RestaurantPage({ merchantId }: Props) {
+  const searchParams = useSearchParams();
+  const highlightedItemId = searchParams.get("item");
+
+  const { restaurant, isLoading } = useRestaurant(merchantId);
+
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState(ALL);
+  const [openItem, setOpenItem] = useState<PublicMenuItem | null>(null);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [cart, setCart] = useState<MenuCart>({});
+  const restored = useRef(false);
+  const autoOpened = useRef(false);
+
+  // Restore the saved cart once we're on the client; reading storage during
+  // render would break hydration.
   useEffect(() => {
-    let saved: CartLine[] = [];
+    let saved: MenuCart = {};
     try {
-      const raw = localStorage.getItem(`cart:${restaurant.id}`);
-      if (raw) {
-        const parsed: { id: string; qty: number }[] = JSON.parse(raw);
-        saved = parsed
-          .map((p) => {
-            const item = restaurant.items.find((i) => i.id === p.id);
-            return item ? { item, qty: p.qty } : null;
-          })
-          .filter(Boolean) as CartLine[];
-      }
+      const raw = localStorage.getItem(cartKey(merchantId));
+      if (raw) saved = JSON.parse(raw) as MenuCart;
     } catch {
-      /* ignore */
+      /* storage blocked — start empty */
     }
     restored.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring persisted cart on mount
-    setLines(saved);
-  }, [restaurant]);
+    setCart(saved);
+  }, [merchantId]);
 
   useEffect(() => {
-    // Don't clobber the stored cart with the empty initial state.
     if (!restored.current) return;
     try {
-      localStorage.setItem(
-        `cart:${restaurant.id}`,
-        JSON.stringify(lines.map((l) => ({ id: l.item.id, qty: l.qty }))),
-      );
+      localStorage.setItem(cartKey(merchantId), JSON.stringify(cart));
     } catch {
       /* ignore */
     }
-  }, [lines, restaurant.id]);
+  }, [cart, merchantId]);
 
+  // Arriving from a dish card on the home page opens that dish straight away.
   useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(""), 1800);
-    return () => clearTimeout(t);
-  }, [toast]);
+    if (autoOpened.current || !restaurant || !highlightedItemId) return;
+    const item = restaurant.items.find(
+      (entry) => entry.id === highlightedItemId,
+    );
+    if (!item) return;
+    autoOpened.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deep link into a dish
+    setOpenItem(item);
+  }, [restaurant, highlightedItemId]);
 
-  const addToCart = (item: MenuItem, qty: number) => {
-    setLines((prev) => {
-      const found = prev.find((l) => l.item.id === item.id);
-      if (found)
-        return prev.map((l) =>
-          l.item.id === item.id ? { ...l, qty: Math.min(20, l.qty + qty) } : l,
-        );
-      return [...prev, { item, qty }];
-    });
+  const items = useMemo(() => restaurant?.items ?? [], [restaurant]);
+
+  // Only lines for dishes that are still on the menu and orderable count.
+  const lines = useMemo(
+    () =>
+      items
+        .filter((item) => cart[item.id] > 0 && isMenuItemOrderable(item))
+        .map((item) => ({ item, quantity: cart[item.id] })),
+    [items, cart],
+  );
+  const cartCount = lines.reduce((sum, line) => sum + line.quantity, 0);
+  const cartTotal = lines.reduce(
+    (sum, line) => sum + (parseFloat(line.item.price) || 0) * line.quantity,
+    0,
+  );
+
+  const addToCart = (item: PublicMenuItem, quantity = 1) => {
+    if (!isMenuItemOrderable(item)) return;
+    const current = cart[item.id] ?? 0;
+    const next = Math.min(maxQuantity(item), current + quantity);
+    const added = next - current;
     setOpenItem(null);
-    setToast(`${item.name} added to cart`);
-  };
-
-  const changeQty = (itemId: string, delta: number) => {
-    setLines((prev) =>
-      prev
-        .map((l) => (l.item.id === itemId ? { ...l, qty: l.qty + delta } : l))
-        .filter((l) => l.qty > 0),
+    if (added <= 0) {
+      toast.error(`You already have the maximum of ${item.name}`);
+      return;
+    }
+    setCart({ ...cart, [item.id]: next });
+    toast.success(
+      `${added} × ${item.name} added${next > added ? ` · ${next} in order` : ""}`,
     );
   };
 
-  const deals = restaurant.items.filter((i) => i.deal);
+  // ± on a card. Going below 1 removes the dish; the cap is stock or 20.
+  const changeQuantity = (item: PublicMenuItem, delta: number) => {
+    const current = cart[item.id] ?? 0;
+    const next = current + delta;
+    if (next <= 0) {
+      const rest = { ...cart };
+      delete rest[item.id];
+      setCart(rest);
+      toast.success(`${item.name} removed`);
+      return;
+    }
+    if (next > maxQuantity(item)) {
+      toast.error(`You already have the maximum of ${item.name}`);
+      return;
+    }
+    setCart({ ...cart, [item.id]: next });
+  };
+
+  const categories = useMemo(() => {
+    if (!restaurant) return [ALL];
+    return [ALL, ...restaurant.categories];
+  }, [restaurant]);
 
   const visible = useMemo(() => {
-    let items = restaurant.items;
-    if (category !== "All")
-      items = items.filter((i) => i.category === category);
+    let list = items;
+    if (category !== ALL) {
+      list = list.filter(
+        (item) => (formatEnumLabel(item.category) || "Other") === category,
+      );
+    }
     const q = query.trim().toLowerCase();
     if (q) {
-      items = items.filter((i) =>
-        [i.name, i.description, i.category, ...i.ingredients, ...i.allergens]
+      list = list.filter((item) =>
+        [item.name, item.description, item.category, item.tag ?? ""]
           .join(" ")
           .toLowerCase()
           .includes(q),
       );
     }
-    return items;
-  }, [restaurant, category, query]);
+    return list;
+  }, [items, category, query]);
 
-  const cartCount = lines.reduce((s, l) => s + l.qty, 0);
-  const cartTotal = lines.reduce((s, l) => s + discounted(l.item) * l.qty, 0);
+  const showHighlights =
+    !!restaurant &&
+    restaurant.highlights.length > 0 &&
+    category === ALL &&
+    !query.trim();
+
+  if (isLoading) return <Loader label="Loading the menu…" />;
+
+  if (!restaurant) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center px-4">
+        <EmptyState
+          icon={<UtensilsCrossed size={26} />}
+          title="Restaurant not found"
+          description="This kitchen hasn't published a menu on SpinStrip, or the link you followed is out of date."
+          action={
+            <Button asChild size="lg">
+              <Link href="/">Browse restaurants</Link>
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
+  const open = getOpenStatus(restaurant.place?.operatingHours);
+  const checkoutItem =
+    lines[0]?.item ?? items.find(isMenuItemOrderable) ?? items[0];
 
   return (
-    <div className="section-swap min-h-screen pb-32" key={restaurant.id}>
+    <div
+      className="section-swap min-h-screen pb-32"
+      style={sectionThemeVars("menu")}
+    >
+      <AuroraBackground />
+
       {/* Top bar */}
       <header className="fixed inset-x-0 top-0 z-40 border-b border-background-light bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link
             href="/"
-            className="btn-press flex items-center gap-1.5 rounded-full border border-background-light bg-white px-3.5 py-2 text-sm font-semibold text-[#0F0F0F] hover:border-primary-light"
+            className="btn-press flex shrink-0 items-center gap-1.5 rounded-full border border-background-light bg-white px-3.5 py-2 text-sm font-semibold text-primary-text hover:border-[color:var(--sec-border)]"
           >
             <ArrowLeft className="h-4 w-4" /> Back
           </Link>
-          <div className="flex min-w-0 items-center gap-2">
-            <RestaurantLogo
-              monogram={restaurant.monogram}
-              bg={restaurant.logoBg}
-              size={32}
-              className="rounded-xl"
-            />
-            <span className="truncate font-display text-sm font-bold text-[#0F0F0F] sm:text-base">
-              {restaurant.name}
-            </span>
-          </div>
+
           <button
-            onClick={() => setCartOpen(true)}
-            className="btn-press relative flex h-10 w-10 items-center justify-center rounded-full border border-background-light bg-white text-[#0F0F0F] hover:border-primary-light"
-            aria-label="Open cart"
+            onClick={() => cartCount > 0 && setCheckoutOpen(true)}
+            className="btn-press relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-background-light bg-white text-primary-text hover:border-[color:var(--sec-border)]"
+            aria-label={
+              cartCount > 0
+                ? `Review order, ${cartCount} items`
+                : "Your order is empty"
+            }
           >
             <ShoppingBag className="h-5 w-5" />
             {cartCount > 0 && (
               <span
-                className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
-                style={{ background: restaurant.accent }}
+                key={cartCount}
+                className="sec-bg bump absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
               >
                 {cartCount}
               </span>
@@ -161,61 +240,80 @@ export default function RestaurantPage({ restaurant }: Props) {
       </header>
 
       {/* Branded hero */}
-      <section className="relative">
-        <div className="relative h-56 overflow-hidden sm:h-72">
-          <Image
-            src={restaurant.cover}
-            alt={restaurant.name}
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-          />
+      <section className="relative pt-16">
+        <div className="relative h-52 overflow-hidden sm:h-72">
+          {restaurant.cover ? (
+            <MediaImage
+              src={restaurant.cover}
+              alt=""
+              eager
+              className="h-full w-full"
+            />
+          ) : (
+            <div className="sec-gradient h-full w-full opacity-90" />
+          )}
           <div
             className="absolute inset-0"
             style={{
-              background: `linear-gradient(to top, rgba(15,15,15,0.72), rgba(15,15,15,0.08) 60%), linear-gradient(135deg, ${restaurant.accent}33, transparent 55%)`,
+              background:
+                "linear-gradient(to top, rgba(15,15,15,0.72), rgba(15,15,15,0.08) 60%), linear-gradient(135deg, var(--sec-glow), transparent 55%)",
             }}
           />
         </div>
+
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="relative -mt-14 rounded-3xl border border-background-light bg-white/90 p-5 shadow-[0_20px_50px_-20px_rgba(105,50,226,0.35)] backdrop-blur-xl sm:-mt-16 sm:p-6">
+          <div className="relative -mt-14 rounded-3xl border border-background-light bg-white/90 p-5 shadow-[0_20px_50px_-20px_var(--sec-glow)] backdrop-blur-xl sm:-mt-16 sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <RestaurantLogo
+                name={restaurant.name}
                 monogram={restaurant.monogram}
-                bg={restaurant.logoBg}
+                src={restaurant.logo}
                 size={72}
-                className="shrink-0"
               />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <h1 className="font-display text-2xl font-bold text-[#0F0F0F]">
+                  <h1 className="font-display text-2xl font-bold text-primary-text">
                     {restaurant.name}
                   </h1>
-                  <span className="flex items-center gap-1 rounded-full bg-primary-accent px-2 py-0.5 text-xs font-semibold text-[#6932E2]">
-                    <Star className="h-3 w-3 fill-[#6932E2] text-[#6932E2]" />
-                    {restaurant.rating.toFixed(1)}
-                    <span className="font-normal text-[#6F6D6D]">
-                      ({restaurant.reviews.toLocaleString()})
+                  {open && (
+                    <span
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                        open.isOpen
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-background text-secondary-text",
+                      )}
+                    >
+                      {open.isOpen && <span className="live-dot" />}
+                      {open.label}
                     </span>
+                  )}
+                </div>
+                {restaurant.categories.length > 0 && (
+                  <p className="sec-text mt-0.5 text-xs font-semibold">
+                    {restaurant.categories.join(" · ")}
+                  </p>
+                )}
+                {restaurant.place?.description && (
+                  <p className="mt-1.5 line-clamp-2 text-sm text-secondary-text">
+                    {restaurant.place.description}
+                  </p>
+                )}
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-secondary-text">
+                  {restaurant.location && (
+                    <span className="flex items-center gap-1">
+                      <MapPin className="sec-text h-3.5 w-3.5" />
+                      {restaurant.location}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1">
+                    <UtensilsCrossed className="sec-text h-3.5 w-3.5" />
+                    {restaurant.dishCount}{" "}
+                    {restaurant.dishCount === 1 ? "dish" : "dishes"}
+                    {restaurant.minPrice !== null &&
+                      ` · from ${formatPrice(restaurant.minPrice)}`}
                   </span>
                 </div>
-                <p
-                  className="mt-0.5 text-xs font-medium"
-                  style={{ color: restaurant.accent }}
-                >
-                  {restaurant.handle}
-                </p>
-                <p className="mt-1.5 text-sm text-[#6F6D6D]">
-                  {restaurant.tagline}
-                </p>
-                <p className="mt-1.5 flex items-center gap-1 text-xs text-[#6F6D6D]">
-                  <MapPin
-                    className="h-3.5 w-3.5"
-                    style={{ color: restaurant.accent }}
-                  />
-                  {restaurant.location}
-                </p>
               </div>
               <div className="flex shrink-0 items-center gap-2 self-start sm:self-center">
                 <Image
@@ -225,7 +323,7 @@ export default function RestaurantPage({ restaurant }: Props) {
                   height={512}
                   className="h-4 w-auto opacity-70"
                 />
-                <span className="text-[10px] font-medium uppercase tracking-widest text-[#6F6D6D]">
+                <span className="text-[10px] font-medium uppercase tracking-widest text-secondary-text">
                   on SpinStrip
                 </span>
               </div>
@@ -237,70 +335,69 @@ export default function RestaurantPage({ restaurant }: Props) {
       {/* Search */}
       <div className="mx-auto mt-6 max-w-7xl px-4 sm:px-6">
         <label className="search-shell flex items-center gap-3 rounded-2xl border border-background-light bg-white/80 px-4 py-3.5 shadow-sm backdrop-blur-xl">
-          <Search
-            className="h-5 w-5 shrink-0"
-            style={{ color: restaurant.accent }}
-          />
+          <Search className="sec-text h-5 w-5 shrink-0" />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={`Search the ${restaurant.name} menu…`}
             enterKeyHint="search"
-            className="w-full bg-transparent text-base text-[#0F0F0F] outline-none placeholder:text-[#C8C8C8]"
+            className="w-full bg-transparent text-base text-primary-text outline-none placeholder:text-neutral-accent"
           />
         </label>
       </div>
 
-      {/* Deals & discounts */}
-      {deals.length > 0 && (
+      {/* Popular */}
+      {showHighlights && (
         <section className="mx-auto mt-8 max-w-7xl">
           <div className="flex items-center gap-2 px-4 sm:px-6">
-            <BadgePercent
-              className="h-5 w-5"
-              style={{ color: restaurant.accent }}
-            />
-            <h2 className="font-display text-lg font-bold text-[#0F0F0F]">
-              Deals & discounts
+            <Flame className="sec-text h-5 w-5" />
+            <h2 className="font-display text-lg font-bold text-primary-text">
+              Popular here
             </h2>
           </div>
-          <div className="chip-rail mt-3 flex gap-3 overflow-x-auto px-4 pb-2 sm:px-6">
-            {deals.map((item) => (
-              <button
+          <div className="chip-rail snap-rail mt-3 flex gap-3 overflow-x-auto px-4 pb-2 sm:px-6">
+            {restaurant.highlights.map((item) => (
+              <div
                 key={item.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setOpenItem(item)}
-                className="listing-card group flex w-64 shrink-0 items-center gap-3 rounded-3xl border border-background-light bg-white/90 p-3 text-left backdrop-blur-md"
+                onKeyDown={(event) =>
+                  event.key === "Enter" && setOpenItem(item)
+                }
+                className="listing-card flex w-72 shrink-0 cursor-pointer items-center gap-3 rounded-3xl border border-background-light bg-white/90 p-3 text-left backdrop-blur-md"
               >
-                <Image
-                  src={item.image}
+                <MediaImage
+                  src={item.images?.[0]}
                   alt={item.name}
-                  width={64}
-                  height={64}
-                  className="h-16 w-16 shrink-0 rounded-2xl object-cover"
+                  className="h-16 w-16 shrink-0 rounded-2xl"
                 />
                 <div className="min-w-0 flex-1">
-                  <span
-                    className="inline-block rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
-                    style={{ background: restaurant.gradient }}
-                  >
-                    {item.deal!.percent}% OFF
-                  </span>
-                  <p className="mt-1 truncate text-sm font-semibold text-[#0F0F0F]">
+                  {item.tag && (
+                    <span className="sec-gradient inline-block max-w-full truncate rounded-full px-2 py-0.5 text-[10px] font-bold text-white">
+                      {item.tag}
+                    </span>
+                  )}
+                  <p className="mt-1 truncate text-sm font-semibold text-primary-text">
                     {item.name}
                   </p>
-                  <p className="text-xs">
-                    <span
-                      className="font-bold"
-                      style={{ color: restaurant.accent }}
-                    >
-                      {formatNaira(discounted(item))}
-                    </span>{" "}
-                    <span className="text-[#C8C8C8] line-through">
-                      {formatNaira(item.price)}
-                    </span>
+                  <p className="sec-text font-display text-base font-bold">
+                    {formatPrice(item.price)}
                   </p>
                 </div>
-              </button>
+                <button
+                  type="button"
+                  aria-label={`Add ${item.name} to order`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    addToCart(item, 1);
+                  }}
+                  className="btn-press sec-bg flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-md"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
             ))}
           </div>
         </section>
@@ -308,18 +405,16 @@ export default function RestaurantPage({ restaurant }: Props) {
 
       {/* Categories */}
       <div className="chip-rail mx-auto mt-8 flex max-w-7xl gap-2 overflow-x-auto px-4 py-1 sm:px-6">
-        {restaurant.categories.map((c) => (
+        {categories.map((c) => (
           <button
             key={c}
             onClick={() => setCategory(c)}
-            className={`chip shrink-0 rounded-full border px-4 py-2 text-sm font-medium ${
+            className={cn(
+              "chip shrink-0 rounded-full border px-4 py-2 text-sm font-medium",
               category === c
-                ? "chip-active border-transparent text-white"
-                : "border-background-light bg-white/70 text-[#6F6D6D] hover:text-[#0F0F0F]"
-            }`}
-            style={
-              category === c ? { background: restaurant.accent } : undefined
-            }
+                ? "chip-active sec-bg border-transparent text-white"
+                : "border-background-light bg-white/70 text-secondary-text hover:text-primary-text",
+            )}
           >
             {c}
           </button>
@@ -330,36 +425,39 @@ export default function RestaurantPage({ restaurant }: Props) {
       <section className="mx-auto mt-6 max-w-7xl px-4 sm:px-6">
         {visible.length > 0 ? (
           <div
-            key={category}
-            className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
+            key={`${category}-${query}`}
+            className="section-swap grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
           >
             {visible.map((item, i) => (
-              <MenuItemCard
+              <DishCard
                 key={item.id}
                 item={item}
-                accent={restaurant.accent}
                 index={i}
+                inCart={cart[item.id] ?? 0}
+                maxQuantity={maxQuantity(item)}
                 onOpen={setOpenItem}
-                onQuickAdd={(it) => addToCart(it, 1)}
+                onAdd={(dish) => addToCart(dish, 1)}
+                onChangeQuantity={changeQuantity}
               />
             ))}
           </div>
         ) : (
           <div className="section-swap flex flex-col items-center gap-3 rounded-3xl border border-dashed border-neutral-accent bg-white/60 py-16 text-center">
-            <SearchX className="h-8 w-8 text-primary-light" />
-            <p className="font-display text-lg font-semibold text-[#0F0F0F]">
+            <span className="sec-soft sec-text grid h-14 w-14 place-items-center rounded-full">
+              <SearchX className="h-6 w-6" />
+            </span>
+            <p className="font-display text-lg font-semibold text-primary-text">
               No dishes found
             </p>
-            <p className="max-w-xs text-sm text-[#6F6D6D]">
+            <p className="max-w-xs text-sm text-secondary-text">
               Try another keyword or a different category.
             </p>
             <button
               onClick={() => {
                 setQuery("");
-                setCategory("All");
+                setCategory(ALL);
               }}
-              className="btn-press mt-2 rounded-full px-5 py-2 text-sm font-semibold text-white"
-              style={{ background: restaurant.accent }}
+              className="btn-press sec-bg mt-2 rounded-full px-5 py-2 text-sm font-semibold text-white"
             >
               Clear filters
             </button>
@@ -367,41 +465,41 @@ export default function RestaurantPage({ restaurant }: Props) {
         )}
       </section>
 
-      {/* Sticky cart bar */}
-      {cartCount > 0 && !cartOpen && (
+      {/* Place order bar */}
+      {cartCount > 0 && !checkoutOpen && !openItem && (
         <div
-          className="fixed inset-x-3 bottom-3 z-40 sm:inset-x-auto sm:right-6 sm:w-96"
+          className="fixed inset-x-3 z-40 sm:inset-x-auto sm:right-6 sm:w-[420px]"
           style={{ bottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
         >
           <button
-            onClick={() => setCartOpen(true)}
-            className="rise-in btn-press flex w-full items-center justify-between rounded-full px-5 py-4 text-white shadow-2xl"
-            style={{
-              background: restaurant.gradient,
-              boxShadow: `0 16px 40px -10px ${restaurant.accent}88`,
-            }}
+            onClick={() => setCheckoutOpen(true)}
+            className="bar-in btn-press sec-gradient flex w-full items-center justify-between rounded-full py-3 pl-4 pr-3 text-white"
+            style={{ boxShadow: "0 16px 40px -10px var(--sec-glow)" }}
           >
-            <span className="flex items-center gap-2 font-display text-sm font-semibold">
-              <ShoppingBag className="h-5 w-5" />
-              {cartCount} {cartCount === 1 ? "item" : "items"}
+            <span className="flex items-center gap-3">
+              <span className="relative grid h-9 w-9 place-items-center rounded-full bg-white/20">
+                <ShoppingBag className="h-4 w-4" />
+                <span
+                  key={cartCount}
+                  className="bump absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-primary-text"
+                >
+                  {cartCount}
+                </span>
+              </span>
+              <span className="text-left">
+                <span className="block text-[11px] font-medium text-white/80">
+                  {cartCount} {cartCount === 1 ? "item" : "items"} ·{" "}
+                  {restaurant.name}
+                </span>
+                <span className="font-display block text-base font-bold">
+                  {formatPrice(cartTotal)}
+                </span>
+              </span>
             </span>
-            <span className="font-display text-base font-bold">
-              View cart · {formatNaira(cartTotal)}
+            <span className="font-display flex items-center gap-1.5 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-primary-text">
+              Place order <ArrowRight className="h-4 w-4" />
             </span>
           </button>
-        </div>
-      )}
-
-      {/* Toast */}
-      {toast && (
-        <div className="fixed left-1/2 top-20 z-50 -translate-x-1/2">
-          <div className="rise-in flex items-center gap-2 rounded-full bg-[#0F0F0F] px-4 py-2.5 text-sm font-medium text-white shadow-xl">
-            <ShoppingBag
-              className="h-4 w-4"
-              style={{ color: restaurant.accent }}
-            />
-            {toast}
-          </div>
         </div>
       )}
 
@@ -409,20 +507,31 @@ export default function RestaurantPage({ restaurant }: Props) {
       {openItem && (
         <ItemSheet
           item={openItem}
-          accent={restaurant.accent}
-          gradient={restaurant.gradient}
+          inCart={cart[openItem.id] ?? 0}
           onClose={() => setOpenItem(null)}
           onAdd={addToCart}
         />
       )}
-      {cartOpen && (
-        <CartSheet
-          restaurant={restaurant}
-          lines={lines}
-          onClose={() => setCartOpen(false)}
-          onQty={changeQty}
-          onClear={() => setLines([])}
+
+      {checkoutItem && (
+        <CheckOutModal
+          isOpen={checkoutOpen}
+          onClose={() => setCheckoutOpen(false)}
+          item={checkoutItem}
+          merchantMenu={items}
+          cart={cart}
+          onCartChange={setCart}
+          restaurantName={restaurant.isNamed ? restaurant.name : undefined}
         />
+      )}
+
+      {/* Small reassurance for kitchens without hours */}
+      {!open && (
+        <p className="mx-auto mt-10 flex max-w-7xl items-center gap-1.5 px-4 text-xs text-secondary-text sm:px-6">
+          <Clock3 className="h-3.5 w-3.5" />
+          Serving times are shown per dish. Prices are confirmed by the
+          restaurant when you pay.
+        </p>
       )}
     </div>
   );

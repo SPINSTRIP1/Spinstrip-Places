@@ -82,7 +82,7 @@ export default function SideModal({
       <div
         onClick={(event) => event.stopPropagation()}
         className={cn(
-          "scrollbar-hide relative flex h-screen w-full max-w-[94vw] flex-col overflow-y-auto rounded-l-3xl bg-white shadow-2xl lg:max-w-[720px]",
+          "scrollbar-hide relative flex h-screen w-full flex-col overflow-y-auto rounded-l-3xl bg-white shadow-2xl lg:max-w-[720px]",
           isOpen ? "side-panel-in" : "side-panel-out",
           className,
         )}

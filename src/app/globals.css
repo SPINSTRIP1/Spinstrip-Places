@@ -89,6 +89,15 @@
     --brand-foreground: #f8f8f8;
     --brand-neutral-accent: #c8c8c8;
 
+    /* Section theme — defaults to the brand violet; HomeView and the
+       restaurant storefront override these per section (see sectionThemeVars). */
+    --sec: #6932e2;
+    --sec-strong: #5527bf;
+    --sec-soft: #ebe2ff;
+    --sec-border: #d9cbfb;
+    --sec-gradient: linear-gradient(135deg, #6932e2 0%, #9e76f8 100%);
+    --sec-glow: rgba(105, 50, 226, 0.45);
+
     /* Same palette as HSL channels, for the shadcn/ui component tokens */
     --background: 0 0% 97.3%; /* #f8f8f8 */
     --foreground: 0 0% 5.9%; /* #0f0f0f */
@@ -620,10 +629,10 @@
 }
 .listing-card:hover {
   transform: translateY(-6px);
-  border-color: rgba(105, 50, 226, 0.4);
+  border-color: var(--sec-border);
   box-shadow:
-    0 20px 50px -18px rgba(105, 50, 226, 0.35),
-    0 0 0 1px rgba(105, 50, 226, 0.12);
+    0 20px 50px -18px var(--sec-glow),
+    0 0 0 1px var(--sec-border);
 }
 .listing-card:active {
   transform: translateY(-2px) scale(0.985);
@@ -668,7 +677,7 @@
   transform: scale(0.95);
 }
 .chip-active {
-  box-shadow: 0 6px 24px -6px rgba(105, 50, 226, 0.55);
+  box-shadow: 0 6px 24px -6px var(--sec-glow);
 }
 
 /* Bottom nav */
@@ -769,6 +778,106 @@
   animation: side-overlay-out 0.28s ease both;
 }
 
+/* ───────────────────────────── Section theme utilities ───────────────────────────── */
+
+.sec-bg {
+  background-color: var(--sec);
+}
+.sec-bg-strong {
+  background-color: var(--sec-strong);
+}
+.sec-text {
+  color: var(--sec);
+}
+.sec-soft {
+  background-color: var(--sec-soft);
+}
+.sec-border {
+  border-color: var(--sec-border);
+}
+.sec-gradient {
+  background: var(--sec-gradient);
+}
+.sec-glow {
+  box-shadow: 0 10px 30px -8px var(--sec-glow);
+}
+.sec-ring:focus-visible {
+  outline: 2px solid var(--sec);
+  outline-offset: 2px;
+}
+
+/* Status dot that breathes — "open now", "happening now" */
+@keyframes live-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+.live-dot {
+  position: relative;
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: currentColor;
+}
+.live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  animation: live-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Horizontal snap rail for dish carousels on touch devices */
+.snap-rail {
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.snap-rail::-webkit-scrollbar {
+  display: none;
+}
+.snap-rail > * {
+  scroll-snap-align: start;
+}
+
+/* Sticky order bar rising from the bottom edge */
+@keyframes bar-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.bar-in {
+  animation: bar-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Quantity bump when a dish is added */
+@keyframes bump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.bump {
+  animation: bump 0.32s ease-out;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .aurora-hue,
@@ -783,7 +892,10 @@
     animation: none !important;
   }
   .side-panel-in,
-  .side-overlay-in {
+  .side-overlay-in,
+  .live-dot::after,
+  .bar-in,
+  .bump {
     animation: none !important;
   }
   .listing-card,
