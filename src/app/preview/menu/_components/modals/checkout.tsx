@@ -12,6 +12,8 @@ import {
   PackageIcon,
   ShoppingBasket01Icon,
   SpoonAndForkIcon,
+  Table01Icon,
+  UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
@@ -40,6 +42,7 @@ import { MENU_API_URL } from "@/constants";
 import apiClient from "@/lib/api/axios-client";
 import { handleAxiosError } from "@/lib/api/handle-axios-error";
 import { formatAmount, formatEnumLabel } from "@/utils";
+import { rememberEmail, saveOrderSnapshot, type CartTags } from "@/lib/smart-menu";
 
 /** menuItemId → quantity. */
 export type MenuCart = Record<string, number>;
@@ -66,6 +69,12 @@ interface CheckOutModalProps {
   userId?: string;
   /** Storefront name, printed on the receipt and in the panel header. */
   restaurantName?: string;
+  /** Table the diner scanned, from the QR code on the table. */
+  tableNumber?: string | null;
+  /** Nicknames of diners whose transferred carts fed each line. */
+  lineTags?: CartTags;
+  /** Shows "Send cart to table captain" on the review step. */
+  onTransfer?: () => void;
 }
 
 /**
@@ -132,6 +141,9 @@ export default function CheckOutModal({
   onCartChange,
   userId,
   restaurantName,
+  tableNumber,
+  lineTags,
+  onTransfer,
 }: CheckOutModalProps) {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [paymentMethod, setPaymentMethod] =
@@ -235,6 +247,33 @@ export default function CheckOutModal({
         }
       }
 
+      // Everything the post-payment page needs, kept on this phone: the
+      // order endpoint doesn't document its shape and has no table field yet.
+      // The order exists server-side from here on, so this phone may list it.
+      rememberEmail(values.email);
+
+      const orderId = data?.id ?? data?.orderId ?? data?.order?.id ?? reference;
+      if (orderId) {
+        saveOrderSnapshot({
+          id: orderId,
+          reference: reference || null,
+          merchantId: item.userId,
+          restaurantName: restaurantName ?? "Restaurant",
+          tableNumber: tableNumber ?? null,
+          lines: lines.map((line) => ({
+            menuItemId: line.item.id,
+            name: line.item.name,
+            quantity: line.quantity,
+            price: Number(line.item.price) || 0,
+            image: line.item.images?.[0] ?? null,
+            sourceNicks: lineTags?.[line.item.id],
+          })),
+          total: totalPrice,
+          customerName: payload.customerName,
+          placedAt: new Date().toISOString(),
+        });
+      }
+
       if (paymentUrl) {
         setLoading(false);
         onCartChange(() => ({}));
@@ -293,6 +332,9 @@ export default function CheckOutModal({
                 icon: PackageIcon,
                 label: `${formatAmount(item.price)} per portion`,
               },
+              ...(tableNumber
+                ? [{ icon: Table01Icon, label: `Table ${tableNumber}` }]
+                : []),
             ]}
           />
 
@@ -352,6 +394,11 @@ export default function CheckOutModal({
                               {line.item.quantity !== null &&
                                 ` · ${line.item.quantity} left`}
                             </p>
+                            {lineTags?.[line.item.id]?.length ? (
+                              <p className="mt-0.5 truncate text-xs font-medium text-primary">
+                                via {lineTags[line.item.id].join(", ")}
+                              </p>
+                            ) : null}
                             <p className="mt-1 text-xs text-secondary-text">
                               {formatAmount(line.item.price)} each
                             </p>
@@ -395,6 +442,17 @@ export default function CheckOutModal({
                     className="w-full rounded-2xl border border-dashed border-background-light py-2.5 text-sm font-bold text-primary transition-colors hover:border-primary hover:bg-primary-accent/40"
                   >
                     + Add more dishes
+                  </button>
+                )}
+
+                {hasSelection && onTransfer && (
+                  <button
+                    type="button"
+                    onClick={onTransfer}
+                    className="flex w-full items-center justify-center gap-x-2 rounded-2xl border border-background-light bg-white py-2.5 text-sm font-bold text-primary-text transition-colors hover:border-primary hover:text-primary"
+                  >
+                    <HugeiconsIcon icon={UserGroupIcon} size={16} color="currentColor" />
+                    Send cart to table captain
                   </button>
                 )}
               </section>

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ReceiptText } from "lucide-react";
 
 export default function Header() {
   const [hidden, setHidden] = useState(false);

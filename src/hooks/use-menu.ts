@@ -1,6 +1,6 @@
 import { MENU_API_URL } from "@/constants";
 import api from "@/lib/api/axios-client";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
 
 export interface MenuItemOption {
   name: string;
@@ -190,6 +190,12 @@ export interface CreateMenuOrderPayload {
   paymentMethod: MenuPaymentMethod;
   callbackUrl?: string;
   items: { menuItemId: string; quantity: number }[];
+  /**
+   * Table the diner scanned. Not sent yet — the API rejects unknown fields
+   * and the backend is still adding this column. Kept client-side in the
+   * order snapshot (see src/lib/smart-menu.ts) until then.
+   */
+  tableNumber?: string;
 }
 
 /**
@@ -226,4 +232,145 @@ export interface VerifyMenuPaymentResponse {
     amount?: string | number;
     totalAmount?: string | number;
   } | null;
+}
+
+/* ─────────────────────────── Orders ─────────────────────────── */
+
+export interface PublicMenuOrderItem {
+  id: string;
+  orderId: string;
+  menuItemId: string;
+  name: string;
+  /** Decimal strings, e.g. "4000". */
+  unitPrice: string;
+  quantity: number;
+  lineTotal: string;
+}
+
+export type MenuOrderStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "CANCELLED"
+  | "COMPLETED"
+  | string;
+
+/** Shape of `GET /menu/public/orders/{id}` and each row of the list. */
+export interface PublicMenuOrder {
+  id: string;
+  /** Human-readable code printed on receipts, e.g. "SS-A042B3". */
+  displayCode: string;
+  merchantUserId: string;
+  restaurantName: string | null;
+  customerName: string;
+  email: string;
+  phone: string;
+  userId: string | null;
+  subtotal: string;
+  totalAmount: string;
+  currency: string;
+  paymentMethod: MenuPaymentMethod | string;
+  status: MenuOrderStatus;
+  transactionRef: string | null;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  deletedAt: string | null;
+  items: PublicMenuOrderItem[];
+  /** Not returned yet — the backend is adding table support. */
+  tableNumber?: string | number | null;
+}
+
+export interface PublicOrdersPage {
+  data: PublicMenuOrder[];
+  count: number;
+  currentpage: number;
+  nextpage: number | null;
+  prevpage: number | null;
+  lastpage: number;
+}
+
+const EMPTY_ORDERS: PublicOrdersPage = {
+  data: [],
+  count: 0,
+  currentpage: 1,
+  nextpage: null,
+  prevpage: null,
+  lastpage: 1,
+};
+
+/** One order, polled so the status timeline moves without a refresh. */
+export function usePublicOrder(orderId: string | null | undefined) {
+  const query = useQuery<PublicMenuOrder | null>({
+    queryKey: ["public-order", orderId],
+    queryFn: async () => {
+      try {
+        const response = await api.get(
+          `${MENU_API_URL}/menu/public/orders/${orderId}`,
+        );
+        return (response.data?.data as PublicMenuOrder | undefined) ?? null;
+      } catch (error) {
+        console.log("Error fetching order:", error);
+        return null;
+      }
+    },
+    enabled: !!orderId,
+    refetchInterval: 15_000,
+  });
+
+  return {
+    order: query.data ?? null,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+async function fetchOrdersForEmail(email: string): Promise<PublicOrdersPage> {
+  try {
+    const params = new URLSearchParams({ email, limit: "50" });
+    const response = await api.get(
+      `${MENU_API_URL}/menu/public/orders?${params.toString()}`,
+    );
+    return (response.data?.data as PublicOrdersPage | undefined) ?? EMPTY_ORDERS;
+  } catch (error) {
+    console.log("Error fetching orders:", error);
+    return EMPTY_ORDERS;
+  }
+}
+
+/**
+ * Every order placed with any of the given emails, newest first. The list
+ * endpoint filters by a single email, so one request runs per email and the
+ * pages are merged client-side.
+ */
+export function usePublicOrders(emails: string[]) {
+  const results = useQueries({
+    queries: emails.map((email) => ({
+      queryKey: ["public-orders", email],
+      queryFn: () => fetchOrdersForEmail(email),
+      staleTime: 30_000,
+    })),
+  });
+
+  const seen = new Set<string>();
+  const orders: PublicMenuOrder[] = [];
+  for (const result of results) {
+    for (const order of result.data?.data ?? []) {
+      if (seen.has(order.id)) continue;
+      seen.add(order.id);
+      orders.push(order);
+    }
+  }
+  orders.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+
+  return {
+    orders,
+    isLoading: results.some((r) => r.isLoading),
+    isFetching: results.some((r) => r.isFetching),
+    refetch: () => results.forEach((r) => r.refetch()),
+  };
 }

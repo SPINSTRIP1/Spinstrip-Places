@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   ArrowLeft,
@@ -12,9 +12,11 @@ import {
   Flame,
   MapPin,
   Plus,
+  ReceiptText,
   Search,
   SearchX,
   ShoppingBag,
+  Users,
   UtensilsCrossed,
 } from "lucide-react";
 import AuroraBackground from "@/components/AuroraBackground";
@@ -24,6 +26,7 @@ import MediaImage from "@/components/media-image";
 import DishCard from "@/components/cards/dish-card";
 import ItemSheet, { maxQuantity } from "@/components/restaurant/ItemSheet";
 import RestaurantLogo from "@/components/restaurant/RestaurantLogo";
+import TransferSheet from "@/components/restaurant/TransferSheet";
 import { Button } from "@/components/ui/button";
 import CheckOutModal, {
   type MenuCart,
@@ -31,6 +34,15 @@ import CheckOutModal, {
 import { sectionThemeVars } from "@/data/listings";
 import { isMenuItemOrderable, type PublicMenuItem } from "@/hooks/use-menu";
 import { useRestaurant } from "@/hooks/use-restaurants";
+import {
+  decodeCartTransfer,
+  getCartTags,
+  getTable,
+  setCartTags,
+  setTable,
+  tableFromSearch,
+  type CartTags,
+} from "@/lib/smart-menu";
 import { cn } from "@/lib/utils";
 import { formatEnumLabel, formatPrice, getOpenStatus } from "@/utils";
 
@@ -46,10 +58,16 @@ const cartKey = (merchantId: string) => `spinstrip:cart:${merchantId}`;
  * Restaurant storefront. The order lives here, not in the checkout: the
  * customer adds as many dishes as they like, reviews them with "Place
  * order", then pays. One cart per restaurant, persisted per restaurant.
+ *
+ * Smart Menu: a table QR opens this page with `?number=<table>`, which is
+ * remembered for the visit and printed on the order. `?transfer=<code>` is
+ * a cart another diner sent to this phone (the table captain) via QR.
  */
 export default function RestaurantPage({ merchantId }: Props) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const highlightedItemId = searchParams.get("item");
+  const transferCode = searchParams.get("transfer");
 
   const { restaurant, isLoading } = useRestaurant(merchantId);
 
@@ -57,12 +75,16 @@ export default function RestaurantPage({ merchantId }: Props) {
   const [category, setCategory] = useState(ALL);
   const [openItem, setOpenItem] = useState<PublicMenuItem | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
   const [cart, setCart] = useState<MenuCart>({});
+  const [tags, setTags] = useState<CartTags>({});
+  const [tableNumber, setTableNumber] = useState<string | null>(null);
   const restored = useRef(false);
   const autoOpened = useRef(false);
+  const transferApplied = useRef(false);
 
-  // Restore the saved cart once we're on the client; reading storage during
-  // render would break hydration.
+  // Restore the saved cart, tags and table once we're on the client; reading
+  // storage during render would break hydration.
   useEffect(() => {
     let saved: MenuCart = {};
     try {
@@ -74,7 +96,18 @@ export default function RestaurantPage({ merchantId }: Props) {
     restored.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring persisted cart on mount
     setCart(saved);
+    setTags(getCartTags(merchantId));
+    setTableNumber(getTable(merchantId));
   }, [merchantId]);
+
+  // A table QR carries the table number; keep it for the whole visit.
+  useEffect(() => {
+    const fromUrl = tableFromSearch(searchParams);
+    if (!fromUrl) return;
+    setTable(merchantId, fromUrl);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing the scanned table into state
+    setTableNumber(fromUrl);
+  }, [merchantId, searchParams]);
 
   useEffect(() => {
     if (!restored.current) return;
@@ -83,19 +116,56 @@ export default function RestaurantPage({ merchantId }: Props) {
     } catch {
       /* ignore */
     }
-  }, [cart, merchantId]);
+    setCartTags(merchantId, tags);
+  }, [cart, tags, merchantId]);
 
   // Arriving from a dish card on the home page opens that dish straight away.
   useEffect(() => {
     if (autoOpened.current || !restaurant || !highlightedItemId) return;
-    const item = restaurant.items.find(
-      (entry) => entry.id === highlightedItemId,
-    );
+    const item = restaurant.items.find((entry) => entry.id === highlightedItemId);
     if (!item) return;
     autoOpened.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- deep link into a dish
     setOpenItem(item);
   }, [restaurant, highlightedItemId]);
+
+  // The table captain scanned a diner's transfer QR: merge their cart into
+  // ours, tag the lines with their nickname, and clean the URL so a refresh
+  // doesn't add it twice.
+  useEffect(() => {
+    if (transferApplied.current || !restaurant || !transferCode || !restored.current) return;
+    transferApplied.current = true;
+    const transfer = decodeCartTransfer(transferCode);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("transfer");
+    router.replace(`/restaurants/${merchantId}${params.size ? `?${params}` : ""}`);
+    if (!transfer) {
+      toast.error("That cart transfer link is invalid or incomplete.");
+      return;
+    }
+    let added = 0;
+    const nextCart = { ...cart };
+    const nextTags = { ...tags };
+    for (const [id, qty] of Object.entries(transfer.lines)) {
+      const item = restaurant.items.find((entry) => entry.id === id);
+      if (!item || !isMenuItemOrderable(item)) continue;
+      const current = nextCart[id] ?? 0;
+      const next = Math.min(maxQuantity(item), current + qty);
+      if (next === current) continue;
+      nextCart[id] = next;
+      added += next - current;
+      const existing = nextTags[id] ?? [];
+      if (!existing.includes(transfer.nick)) nextTags[id] = [...existing, transfer.nick];
+    }
+    if (added === 0) {
+      toast.error(`${transfer.nick}'s cart had nothing that can be ordered right now.`);
+      return;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- applying a scanned cart transfer
+    setCart(nextCart);
+    setTags(nextTags);
+    toast.success(`${transfer.nick}'s cart added — ${added} ${added === 1 ? "item" : "items"}`);
+  }, [restaurant, transferCode, merchantId, router, searchParams, cart, tags]);
 
   const items = useMemo(() => restaurant?.items ?? [], [restaurant]);
 
@@ -137,6 +207,9 @@ export default function RestaurantPage({ merchantId }: Props) {
       const rest = { ...cart };
       delete rest[item.id];
       setCart(rest);
+      const restTags = { ...tags };
+      delete restTags[item.id];
+      setTags(restTags);
       toast.success(`${item.name} removed`);
       return;
     }
@@ -145,6 +218,20 @@ export default function RestaurantPage({ merchantId }: Props) {
       return;
     }
     setCart({ ...cart, [item.id]: next });
+  };
+
+  // Keep tags in step with the checkout's own edits (remove, quantities).
+  const handleCartChange = (updater: (previous: MenuCart) => MenuCart) => {
+    const next = updater(cart);
+    setCart(next);
+    const keptTags: CartTags = {};
+    for (const [id, nicks] of Object.entries(tags)) if (next[id]) keptTags[id] = nicks;
+    setTags(keptTags);
+  };
+
+  const clearCartAfterTransfer = () => {
+    setCart({});
+    setTags({});
   };
 
   const categories = useMemo(() => {
@@ -172,10 +259,7 @@ export default function RestaurantPage({ merchantId }: Props) {
   }, [items, category, query]);
 
   const showHighlights =
-    !!restaurant &&
-    restaurant.highlights.length > 0 &&
-    category === ALL &&
-    !query.trim();
+    !!restaurant && restaurant.highlights.length > 0 && category === ALL && !query.trim();
 
   if (isLoading) return <Loader label="Loading the menu…" />;
 
@@ -197,8 +281,12 @@ export default function RestaurantPage({ merchantId }: Props) {
   }
 
   const open = getOpenStatus(restaurant.place?.operatingHours);
-  const checkoutItem =
-    lines[0]?.item ?? items.find(isMenuItemOrderable) ?? items[0];
+  const checkoutItem = lines[0]?.item ?? items.find(isMenuItemOrderable) ?? items[0];
+  const tableChip = tableNumber && (
+    <span className="sec-soft sec-text inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold">
+      <Users className="h-3.5 w-3.5" /> Table {tableNumber}
+    </span>
+  );
 
   return (
     <div
@@ -216,15 +304,35 @@ export default function RestaurantPage({ merchantId }: Props) {
           >
             <ArrowLeft className="h-4 w-4" /> Back
           </Link>
-
-          <button
-            onClick={() => cartCount > 0 && setCheckoutOpen(true)}
-            className="btn-press relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-background-light bg-white text-primary-text hover:border-[color:var(--sec-border)]"
-            aria-label={
-              cartCount > 0
-                ? `Review order, ${cartCount} items`
-                : "Your order is empty"
-            }
+          <div className="flex min-w-0 items-center gap-2">
+            <RestaurantLogo
+              name={restaurant.name}
+              monogram={restaurant.monogram}
+              src={restaurant.logo}
+              size={32}
+              className="rounded-xl"
+            />
+            <span className="font-display truncate text-sm font-bold text-primary-text sm:text-base">
+              {restaurant.name}
+            </span>
+            {tableNumber && (
+              <span className="sec-soft sec-text hidden shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold sm:inline">
+                Table {tableNumber}
+              </span>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              href="/orders"
+              aria-label="My orders"
+              className="btn-press flex h-10 w-10 items-center justify-center rounded-full border border-background-light bg-white text-primary-text hover:border-[color:var(--sec-border)]"
+            >
+              <ReceiptText className="h-5 w-5" />
+            </Link>
+            <button
+              onClick={() => cartCount > 0 && setCheckoutOpen(true)}
+              className="btn-press relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-background-light bg-white text-primary-text hover:border-[color:var(--sec-border)]"
+            aria-label={cartCount > 0 ? `Review order, ${cartCount} items` : "Your order is empty"}
           >
             <ShoppingBag className="h-5 w-5" />
             {cartCount > 0 && (
@@ -235,7 +343,8 @@ export default function RestaurantPage({ merchantId }: Props) {
                 {cartCount}
               </span>
             )}
-          </button>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -275,6 +384,7 @@ export default function RestaurantPage({ merchantId }: Props) {
                   <h1 className="font-display text-2xl font-bold text-primary-text">
                     {restaurant.name}
                   </h1>
+                  {tableChip}
                   {open && (
                     <span
                       className={cn(
@@ -363,9 +473,7 @@ export default function RestaurantPage({ merchantId }: Props) {
                 role="button"
                 tabIndex={0}
                 onClick={() => setOpenItem(item)}
-                onKeyDown={(event) =>
-                  event.key === "Enter" && setOpenItem(item)
-                }
+                onKeyDown={(event) => event.key === "Enter" && setOpenItem(item)}
                 className="listing-card flex w-72 shrink-0 cursor-pointer items-center gap-3 rounded-3xl border border-background-light bg-white/90 p-3 text-left backdrop-blur-md"
               >
                 <MediaImage
@@ -466,7 +574,7 @@ export default function RestaurantPage({ merchantId }: Props) {
       </section>
 
       {/* Place order bar */}
-      {cartCount > 0 && !checkoutOpen && !openItem && (
+      {cartCount > 0 && !checkoutOpen && !openItem && !transferOpen && (
         <div
           className="fixed inset-x-3 z-40 sm:inset-x-auto sm:right-6 sm:w-[420px]"
           style={{ bottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
@@ -488,8 +596,8 @@ export default function RestaurantPage({ merchantId }: Props) {
               </span>
               <span className="text-left">
                 <span className="block text-[11px] font-medium text-white/80">
-                  {cartCount} {cartCount === 1 ? "item" : "items"} ·{" "}
-                  {restaurant.name}
+                  {cartCount} {cartCount === 1 ? "item" : "items"}
+                  {tableNumber ? ` · Table ${tableNumber}` : ` · ${restaurant.name}`}
                 </span>
                 <span className="font-display block text-base font-bold">
                   {formatPrice(cartTotal)}
@@ -513,6 +621,18 @@ export default function RestaurantPage({ merchantId }: Props) {
         />
       )}
 
+      {transferOpen && (
+        <TransferSheet
+          merchantId={merchantId}
+          tableNumber={tableNumber}
+          cart={cart}
+          itemCount={cartCount}
+          total={cartTotal}
+          onClose={() => setTransferOpen(false)}
+          onSent={clearCartAfterTransfer}
+        />
+      )}
+
       {checkoutItem && (
         <CheckOutModal
           isOpen={checkoutOpen}
@@ -520,8 +640,14 @@ export default function RestaurantPage({ merchantId }: Props) {
           item={checkoutItem}
           merchantMenu={items}
           cart={cart}
-          onCartChange={setCart}
+          onCartChange={handleCartChange}
           restaurantName={restaurant.isNamed ? restaurant.name : undefined}
+          tableNumber={tableNumber}
+          lineTags={tags}
+          onTransfer={() => {
+            setCheckoutOpen(false);
+            setTransferOpen(true);
+          }}
         />
       )}
 
