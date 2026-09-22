@@ -182,7 +182,14 @@ export default function HomeView() {
   const activeSection = SECTIONS.find((s) => s.key === section)!;
 
   const handleOpen = (listing: Listing) => {
-    if (section === "menu") return;
+    if (section === "menu") {
+      // There's no single-item endpoint, so the preview loads the item
+      // through its merchant's menu and needs the merchant id alongside it.
+      const item = menuItems.find((menuItem) => menuItem.id === listing.id);
+      if (!item) return;
+      router.push(`/preview/menu?id=${item.id}&merchant=${item.userId}`);
+      return;
+    }
     if (section === "events") {
       router.push(`/preview/events?id=${listing.id}`);
       return;

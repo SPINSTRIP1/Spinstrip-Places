@@ -1,4 +1,4 @@
-import { USER_ACCOUNT_URL } from "@/constants";
+import { MENU_API_URL } from "@/constants";
 import api from "@/lib/api/axios-client";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
@@ -9,7 +9,7 @@ export interface MenuItemOption {
 
 export interface MenuItemNutritionAllergen {
   name: string;
-  type: string;
+  type?: string;
 }
 
 export interface MenuItemAvailabilitySchedule {
@@ -20,28 +20,31 @@ export interface MenuItemAvailabilitySchedule {
 
 export interface PublicMenuItem {
   id: string;
+  /** The merchant that owns the item. Orders are placed per merchant. */
   userId: string;
   code: string;
   name: string;
   description: string;
   /** The API returns price as a string, e.g. "4000". */
   price: string;
-  quantity: number;
+  /** Portions left. `null` means the merchant doesn't track stock. */
+  quantity: number | null;
   category: string;
-  status: "AVAILABLE" | "PENDING" | "UNAVAILABLE";
+  status: "AVAILABLE" | "PENDING" | "UNAVAILABLE" | "DRAFT";
   tag: string | null;
   isFeatured: boolean;
-  images: string[];
+  images: string[] | null;
   availabilityType:
     | "ALWAYS_AVAILABLE"
     | "ON_DEMAND"
     | "SPECIFIC_DAYS_TIME"
+    | "OTHER"
     | string;
-  availabilitySchedule: MenuItemAvailabilitySchedule;
-  nutritionAllergens: MenuItemNutritionAllergen[];
-  addOns: MenuItemOption[];
-  sizeOptions: string[];
-  extras: MenuItemOption[];
+  availabilitySchedule: MenuItemAvailabilitySchedule | null;
+  nutritionAllergens: MenuItemNutritionAllergen[] | null;
+  addOns: MenuItemOption[] | null;
+  sizeOptions: string[] | null;
+  extras: MenuItemOption[] | null;
   dealId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -50,7 +53,7 @@ export interface PublicMenuItem {
 }
 
 /**
- * Query params accepted by `GET /menu/public`.
+ * Query params accepted by `GET /menu/public/menu-items`.
  */
 export interface PublicMenuFilter {
   page?: number;
@@ -60,6 +63,8 @@ export interface PublicMenuFilter {
   category?: string;
   sortBy?: "createdAt" | "updatedAt" | "name" | "price" | string;
   sortOrder?: "asc" | "desc";
+  /** Merchant that owns the menu. Omit to list across restaurants. */
+  userId?: string;
 }
 
 export interface PublicMenuResponse {
@@ -86,7 +91,7 @@ const EMPTY_PAGE: PublicMenuResponse["data"] = {
 
 /**
  * Fetches public menu items with optional filtering/pagination
- * from `GET /menu/public`.
+ * from `GET /menu/public/menu-items`.
  */
 export function usePublicMenu(
   filters?: PublicMenuFilter,
@@ -108,8 +113,9 @@ export function usePublicMenu(
         if (filters?.category) params.append("category", filters.category);
         if (filters?.sortBy) params.append("sortBy", filters.sortBy);
         if (filters?.sortOrder) params.append("sortOrder", filters.sortOrder);
+        if (filters?.userId) params.append("userId", filters.userId);
 
-        const url = `${USER_ACCOUNT_URL}/menu/public${params.toString() ? `?${params.toString()}` : ""}`;
+        const url = `${MENU_API_URL}/menu/public/menu-items${params.toString() ? `?${params.toString()}` : ""}`;
         const response = await api.get(url);
 
         return response.data.data ?? EMPTY_PAGE;
@@ -139,27 +145,85 @@ export function usePublicMenu(
 }
 
 /**
- * Fetches a single public menu item from `GET /menu/public/{id}`.
+ * Loads one public menu item plus the rest of its merchant's menu.
+ *
+ * The menu service has no public single-item endpoint, so this reads the
+ * merchant's menu (`userId` filter, max page size) and picks the item out.
+ * The full menu is returned too — an order can hold several items, as long
+ * as they all belong to the same merchant.
  */
-export function usePublicMenuItem(itemId: string | null | undefined) {
-  const { data, isLoading, error, refetch } = useQuery<PublicMenuItem | null>({
-    queryKey: ["public-menu-item", itemId],
-    queryFn: async () => {
-      try {
-        const response = await api.get(`${USER_ACCOUNT_URL}/menu/public/${itemId}`);
-        return response.data.data ?? null;
-      } catch (error) {
-        console.log("Error fetching public menu item:", error);
-        return null;
-      }
-    },
-    enabled: !!itemId,
-  });
+export function usePublicMenuItem(
+  itemId: string | null | undefined,
+  merchantId: string | null | undefined,
+) {
+  const { menuItems, isLoading, error, refetch } = usePublicMenu(
+    { userId: merchantId ?? undefined, limit: 100 },
+    { enabled: !!itemId && !!merchantId },
+  );
 
   return {
-    menuItem: data ?? null,
+    menuItem: menuItems.find((item) => item.id === itemId) ?? null,
+    merchantMenu: menuItems,
     isLoading,
     error,
     refetch,
   };
+}
+
+/** Whether a customer can add this item to an order right now. */
+export function isMenuItemOrderable(item: PublicMenuItem) {
+  return (
+    item.status === "AVAILABLE" && (item.quantity === null || item.quantity > 0)
+  );
+}
+
+export type MenuPaymentMethod = "PAYSTACK" | "LEDGER_BLOCK";
+
+/** Body of `POST /menu/public/orders`. The server reprices every line. */
+export interface CreateMenuOrderPayload {
+  merchantUserId: string;
+  restaurantName?: string;
+  customerName: string;
+  email: string;
+  phone: string;
+  userId?: string;
+  paymentMethod: MenuPaymentMethod;
+  callbackUrl?: string;
+  items: { menuItemId: string; quantity: number }[];
+}
+
+/**
+ * The docs don't publish a response schema for order creation, so the
+ * fields the checkout reads are optional and probed defensively (the same
+ * approach as the places booking response).
+ */
+export interface CreateMenuOrderResponse {
+  status: string;
+  message: string;
+  data: {
+    id?: string;
+    orderId?: string;
+    reference?: string;
+    authorizationUrl?: string;
+    totalAmount?: string | number;
+    payment?: {
+      authorizationUrl?: string;
+      accessCode?: string;
+      reference?: string;
+    };
+    order?: { id?: string; reference?: string };
+  } | null;
+}
+
+export interface VerifyMenuPaymentResponse {
+  status: string;
+  message: string;
+  data: {
+    reference?: string;
+    status?: string;
+    paymentStatus?: string;
+    orderId?: string;
+    amount?: string | number;
+    totalAmount?: string | number;
+  } | null;
 }
