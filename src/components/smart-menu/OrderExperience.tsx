@@ -1,31 +1,41 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import QRCode from "qrcode";
+import toast from "react-hot-toast";
 import {
   ArrowLeft,
-  Bell,
   CreditCard,
   Gamepad2,
   Hand,
   Puzzle,
   ReceiptText,
   Sparkles,
-  Star,
   Trophy,
   Users,
-  Wallet,
 } from "lucide-react";
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
 import MediaImage from "@/components/media-image";
 import { orderStatusMeta } from "@/components/smart-menu/OrdersList";
+import WaiterPanel, {
+  TIP_REFERENCE_KEY,
+  waiterStateOf,
+} from "@/components/smart-menu/WaiterPanel";
 import { Button } from "@/components/ui/button";
 import { usePublicOrder, type PublicMenuOrder } from "@/hooks/use-menu";
 import { useRestaurant } from "@/hooks/use-restaurants";
 import {
+  isTipReference,
+  useOrderSocket,
+  verifyTip,
+  type GuestOrderEvent,
+  type OrderEventPayload,
+} from "@/hooks/use-order-live";
+import {
+  emailForOrder,
   getDinerNick,
   getOrderSnapshot,
   orderIdForReference,
@@ -45,23 +55,43 @@ const TABS = [
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
-const STEPS = ["Placed", "Claimed", "Ongoing", "Served"] as const;
+const STEPS = ["Placed", "Paid", "Waiter", "Served"] as const;
 
 const GAMES = [
-  { id: "jigsaw", name: "Restaurant Puzzle", desc: "3×3 jigsaw swap — fastest time + fewest moves wins", icon: Puzzle },
-  { id: "tiles", name: "Polymorphic Tiles", desc: "Fill the 8×8 board — efficiency score", icon: Sparkles },
-  { id: "spinanza", name: "Spin-to-Build", desc: "Spin the wheel, build your castle first", icon: Gamepad2 },
+  {
+    id: "jigsaw",
+    name: "Restaurant Puzzle",
+    desc: "3×3 jigsaw swap — fastest time + fewest moves wins",
+    icon: Puzzle,
+  },
+  {
+    id: "tiles",
+    name: "Polymorphic Tiles",
+    desc: "Fill the 8×8 board — efficiency score",
+    icon: Sparkles,
+  },
+  {
+    id: "spinanza",
+    name: "Spin-to-Build",
+    desc: "Spin the wheel, build your castle first",
+    icon: Gamepad2,
+  },
 ] as const;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Map whatever status the backend uses onto the four-step timeline. */
-function stepForStatus(status: string | undefined): number {
-  const s = (status ?? "").toUpperCase();
-  if (/SERVED|COMPLETED|DELIVERED|FULFILLED/.test(s)) return 3;
-  if (/PREPARING|ONGOING|IN_PROGRESS|PROCESSING|READY/.test(s)) return 2;
-  if (/ACCEPTED|CLAIMED/.test(s)) return 1;
-  return 0;
+/**
+ * Timeline position. Live statuses are only PENDING and CONFIRMED today, so
+ * "Waiter" comes from the assignment fields and "Served" lights up only if
+ * the backend starts sending a served-style status.
+ */
+function stepForOrder(order: PublicMenuOrder | null): number {
+  if (!order) return 0;
+  const s = order.status?.toUpperCase() ?? "";
+  if (/SERVED|DELIVERED|FULFILLED/.test(s)) return 3;
+  if (s === "PENDING") return 0;
+  if (waiterStateOf(order) === "assigned") return 2;
+  return 1;
 }
 
 /** One line as the page renders it, whichever source it came from. */
@@ -88,25 +118,121 @@ interface Props {
  * table number, dish photos and who transferred which lines.
  */
 export default function OrderExperience({ orderId }: Props) {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const [snapshot, setSnapshot] = useState<OrderSnapshot | null | undefined>(undefined);
+  const [snapshot, setSnapshot] = useState<OrderSnapshot | null | undefined>(
+    undefined,
+  );
   const [tab, setTab] = useState<TabId>("order");
   const [qr, setQr] = useState<string | null>(null);
   const [nick, setNick] = useState("");
+  // Poll until the socket is live, and while payment settles (guests aren't
+  // sent order.confirmed, so PENDING → CONFIRMED only shows up by refetch).
+  const [pollMs, setPollMs] = useState<number | false>(15_000);
 
   // The snapshot lives in localStorage, so it can only be read on the client.
   useEffect(() => {
     const reference = searchParams.get("ref");
-    const resolvedId =
-      getOrderSnapshot(orderId) ? orderId : (reference && orderIdForReference(reference)) || orderId;
+    const resolvedId = getOrderSnapshot(orderId)
+      ? orderId
+      : (reference && orderIdForReference(reference)) || orderId;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrating from browser storage
     setSnapshot(getOrderSnapshot(resolvedId));
     setNick(getDinerNick());
   }, [orderId, searchParams]);
 
   // A reference can stand in for the id on the URL; the snapshot maps it.
-  const apiId = UUID.test(orderId) ? orderId : snapshot?.id && UUID.test(snapshot.id) ? snapshot.id : null;
-  const { order, isLoading: orderLoading } = usePublicOrder(apiId);
+  const apiId = UUID.test(orderId)
+    ? orderId
+    : snapshot?.id && UUID.test(snapshot.id)
+      ? snapshot.id
+      : null;
+  const { order, isLoading: orderLoading } = usePublicOrder(apiId, pollMs);
+
+  // Only the phone that checked out knows the order email the API demands.
+  const [email, setEmail] = useState<string | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reading browser storage after mount
+    setEmail(emailForOrder(order?.email));
+  }, [order?.email]);
+
+  const handleEvent = useCallback(
+    (event: GuestOrderEvent, payload: OrderEventPayload) => {
+      if (event === "order.accepted") {
+        toast.success("A waiter has accepted your order");
+        setTab("waiter");
+      } else if (event === "order.released") {
+        toast("Your waiter handed the order over — another will pick it up");
+      } else if (event === "order.message" && payload.sender === "WAITER") {
+        toast(`Waiter: ${String(payload.body ?? "").slice(0, 80)}`, {
+          icon: "💬",
+        });
+      } else if (event === "order.tipped") {
+        toast.success(
+          payload.amount
+            ? `Your tip of ${formatPrice(payload.amount)} reached your waiter 💜`
+            : "Your tip reached your waiter 💜",
+        );
+      } else if (event === "order.rated") {
+        toast.success("Rating received — thank you!");
+      }
+    },
+    [],
+  );
+
+  // Back from the tip payment page: settle the tip once, then tidy the URL.
+  const tipChecked = useRef(false);
+  useEffect(() => {
+    if (tipChecked.current || !searchParams.get("tip")) return;
+    tipChecked.current = true;
+    let stored: string | null = null;
+    try {
+      stored = sessionStorage.getItem(TIP_REFERENCE_KEY);
+    } catch {
+      /* ignore */
+    }
+    const reference =
+      searchParams.get("reference") || searchParams.get("trxref") || stored;
+    router.replace(`/orders/${orderId}/`);
+    if (!reference || !isTipReference(reference)) return;
+    setTab("waiter");
+    verifyTip(reference)
+      .then((result) => {
+        const status = result?.status?.toUpperCase() ?? "";
+        if (/SUCCESS|COMPLETED|PAID|CONFIRMED/.test(status)) {
+          toast.success("Tip sent — thank you! 💜");
+          try {
+            sessionStorage.removeItem(TIP_REFERENCE_KEY);
+          } catch {
+            /* ignore */
+          }
+        } else if (/FAIL|ABANDON|CANCEL|REVERS/.test(status)) {
+          toast.error("The tip payment didn't go through.");
+        } else {
+          toast(
+            "Your tip is processing — it reaches your waiter once it settles.",
+          );
+        }
+      })
+      .catch(() =>
+        toast.error(
+          "We couldn't confirm your tip yet. If you paid, it settles on its own.",
+        ),
+      );
+  }, [searchParams, orderId, router]);
+  const { state: socketState } = useOrderSocket(apiId, email, handleEvent);
+
+  const awaitingPayment = order?.status?.toUpperCase() === "PENDING";
+  useEffect(() => {
+    const next =
+      socketState === "live" && !awaitingPayment
+        ? false
+        : awaitingPayment
+          ? 5_000
+          : 15_000;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- polling follows socket health
+    setPollMs(next);
+  }, [socketState, awaitingPayment]);
 
   const merchantId = order?.merchantUserId ?? snapshot?.merchantId ?? null;
 
@@ -114,11 +240,12 @@ export default function OrderExperience({ orderId }: Props) {
   // profile fills both in.
   const { restaurant } = useRestaurant(merchantId);
   const restaurantName =
-    order?.restaurantName || snapshot?.restaurantName || restaurant?.name || "Restaurant";
+    order?.restaurantName ||
+    snapshot?.restaurantName ||
+    restaurant?.name ||
+    "Restaurant";
 
-  const tableNumber =
-    snapshot?.tableNumber ??
-    (order?.tableNumber !== null && order?.tableNumber !== undefined ? String(order.tableNumber) : null);
+  const tableNumber = order?.tableNumber || snapshot?.tableNumber || null;
 
   const lines = useMemo<Line[]>(() => {
     const photo = (menuItemId: string) =>
@@ -126,7 +253,8 @@ export default function OrderExperience({ orderId }: Props) {
       restaurant?.items.find((item) => item.id === menuItemId)?.images?.[0] ??
       null;
     const nicks = (menuItemId: string) =>
-      snapshot?.lines.find((l) => l.menuItemId === menuItemId)?.sourceNicks ?? [];
+      snapshot?.lines.find((l) => l.menuItemId === menuItemId)?.sourceNicks ??
+      [];
     if (order) {
       return order.items.map((item) => ({
         menuItemId: item.menuItemId,
@@ -147,12 +275,15 @@ export default function OrderExperience({ orderId }: Props) {
     }));
   }, [order, snapshot, restaurant]);
 
-  const total = order ? parseFloat(order.totalAmount) || 0 : (snapshot?.total ?? 0);
-  const code = order?.displayCode ?? `#${shortOrderCode(snapshot?.id ?? orderId)}`;
+  const total = order
+    ? parseFloat(order.totalAmount) || 0
+    : (snapshot?.total ?? 0);
+  const code =
+    order?.displayCode ?? `#${shortOrderCode(snapshot?.id ?? orderId)}`;
   const status = order?.status;
   const statusMeta = status ? orderStatusMeta(status) : null;
-  const awaitingPayment = status?.toUpperCase() === "PENDING";
-  const stepIdx = stepForStatus(status);
+  const stepIdx = stepForOrder(order);
+  const released = waiterStateOf(order) === "released";
 
   const qrSource = useMemo<OrderSnapshot | null>(() => {
     if (!merchantId) return null;
@@ -167,7 +298,15 @@ export default function OrderExperience({ orderId }: Props) {
       customerName: order?.customerName ?? snapshot?.customerName ?? "",
       placedAt: order?.createdAt ?? snapshot?.placedAt ?? "",
     };
-  }, [merchantId, order, snapshot, orderId, restaurantName, tableNumber, total]);
+  }, [
+    merchantId,
+    order,
+    snapshot,
+    orderId,
+    restaurantName,
+    tableNumber,
+    total,
+  ]);
 
   useEffect(() => {
     if (!qrSource) return;
@@ -228,17 +367,26 @@ export default function OrderExperience({ orderId }: Props) {
             <ReceiptText className="h-4 w-4" /> My orders
           </Link>
         </div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-primary">{restaurantName}</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-primary">
+          {restaurantName}
+        </p>
         <h1 className="font-display mt-1 text-3xl font-bold tracking-tight text-primary-text">
           Order {code}
         </h1>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-secondary-text">
           <span>
             {tableNumber ? `Table ${tableNumber} · ` : ""}
-            <span className="font-semibold text-primary-text">{formatPrice(total)}</span>
+            <span className="font-semibold text-primary-text">
+              {formatPrice(total)}
+            </span>
           </span>
           {statusMeta && (
-            <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-bold", statusMeta.className)}>
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[11px] font-bold",
+                statusMeta.className,
+              )}
+            >
               {statusMeta.label}
             </span>
           )}
@@ -249,8 +397,8 @@ export default function OrderExperience({ orderId }: Props) {
         <div className="mx-5 mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
           <CreditCard className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
-            Payment hasn&apos;t been confirmed for this order yet. The kitchen starts once it settles; this
-            page updates on its own.
+            Payment hasn&apos;t been confirmed for this order yet. The kitchen
+            starts once it settles; this page updates on its own.
           </p>
         </div>
       )}
@@ -262,14 +410,18 @@ export default function OrderExperience({ orderId }: Props) {
         </p>
         {qr ? (
           // eslint-disable-next-line @next/next/no-img-element -- generated data URI
-          <img src={qr} alt="Receipt QR code" className="mx-auto mt-3 w-48 rounded-2xl bg-white p-2" />
+          <img
+            src={qr}
+            alt="Receipt QR code"
+            className="mx-auto mt-3 w-48 rounded-2xl bg-white p-2"
+          />
         ) : (
           <div className="mx-auto mt-3 h-48 w-48 animate-pulse rounded-2xl bg-primary-accent/60" />
         )}
-        <p className="mt-2 text-xs tabular-nums text-secondary-text">
+        {/* <p className="mt-2 text-xs tabular-nums text-secondary-text">
           {code}
           {order?.transactionRef && ` · ${order.transactionRef}`}
-        </p>
+        </p> */}
       </div>
 
       {/* Status timeline */}
@@ -281,7 +433,10 @@ export default function OrderExperience({ orderId }: Props) {
                 className={cn(
                   "h-2.5 w-2.5 rounded-full",
                   i <= stepIdx ? "bg-primary" : "bg-background-light",
-                  i === stepIdx && stepIdx < 3 && !awaitingPayment && "live-dot text-primary",
+                  i === stepIdx &&
+                    stepIdx < 3 &&
+                    !awaitingPayment &&
+                    "live-dot text-primary",
                 )}
               />
               <span
@@ -294,7 +449,12 @@ export default function OrderExperience({ orderId }: Props) {
               </span>
             </div>
             {i < STEPS.length - 1 && (
-              <div className={cn("mx-1 mb-4 h-px flex-1", i < stepIdx ? "bg-primary" : "bg-background-light")} />
+              <div
+                className={cn(
+                  "mx-1 mb-4 h-px flex-1",
+                  i < stepIdx ? "bg-primary" : "bg-background-light",
+                )}
+              />
             )}
           </div>
         ))}
@@ -333,15 +493,23 @@ export default function OrderExperience({ orderId }: Props) {
                 className="flex items-center justify-between gap-3 rounded-2xl border border-background-light bg-white/90 p-3"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <MediaImage src={line.image} alt={line.name} className="h-11 w-11 shrink-0 rounded-xl" />
+                  <MediaImage
+                    src={line.image}
+                    alt={line.name}
+                    className="h-11 w-11 shrink-0 rounded-xl"
+                  />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-primary-text">
                       {line.quantity}× {line.name}
                     </p>
                     {line.sourceNicks.length > 0 ? (
-                      <p className="truncate text-xs text-primary">via {line.sourceNicks.join(", ")}</p>
+                      <p className="truncate text-xs text-primary">
+                        via {line.sourceNicks.join(", ")}
+                      </p>
                     ) : (
-                      <p className="truncate text-xs text-secondary-text">{formatPrice(line.price)} each</p>
+                      <p className="truncate text-xs text-secondary-text">
+                        {formatPrice(line.price)} each
+                      </p>
                     )}
                   </div>
                 </div>
@@ -352,59 +520,46 @@ export default function OrderExperience({ orderId }: Props) {
             ))}
             <div className="flex justify-between px-1 pt-2 text-sm">
               <span className="text-secondary-text">Total</span>
-              <span className="font-display text-base font-bold text-primary-text">{formatPrice(total)}</span>
+              <span className="font-display text-base font-bold text-primary-text">
+                {formatPrice(total)}
+              </span>
             </div>
-            {order && (
-              <OrderFacts order={order} />
-            )}
+            {order && <OrderFacts order={order} />}
             {stepIdx === 3 && (
               <p className="rounded-xl bg-primary-accent/60 p-3 text-center text-sm text-primary">
                 Served! Enjoy — and consider rating your waiter.
               </p>
             )}
+            {released && (
+              <p className="rounded-xl bg-amber-50 p-3 text-center text-sm text-amber-800">
+                Your waiter handed this order over. Another waiter will pick it
+                up shortly.
+              </p>
+            )}
           </div>
         )}
 
-        {tab === "waiter" && (
-          <div className="space-y-3">
-            <div className="rounded-2xl border border-background-light bg-white/90 p-6 text-center">
-              <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary-accent text-primary">
-                <Hand className="h-6 w-6" />
-              </span>
-              <p className="mt-3 font-semibold text-primary-text">No waiter yet</p>
-              <p className="mt-1 text-sm text-secondary-text">
-                Show the receipt QR above to any waiter. Once they scan it, this tab unlocks.
-              </p>
+        {tab === "waiter" &&
+          (order ? (
+            <WaiterPanel
+              order={order}
+              email={email}
+              socketState={socketState}
+            />
+          ) : (
+            <div className="rounded-2xl border border-background-light bg-white/90 p-6 text-center text-sm text-secondary-text">
+              <Hand className="mx-auto h-6 w-6 text-primary" />
+              <p className="mt-2">Loading your waiter details…</p>
             </div>
-            <ul className="space-y-2">
-              {[
-                { icon: Bell, title: "Ping your waiter", desc: "One tap to call them over, with a cooldown so it stays polite." },
-                { icon: Star, title: "Rate the service", desc: "Once per visit. Ratings feed the restaurant's best-waiter board." },
-                { icon: Wallet, title: "Tip directly", desc: "Goes straight to your waiter's wallet." },
-              ].map((f) => (
-                <li
-                  key={f.title}
-                  className="flex items-start gap-3 rounded-2xl border border-dashed border-background-light bg-white/60 p-4 opacity-70"
-                >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-background text-secondary-text">
-                    <f.icon className="h-4 w-4" />
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold text-primary-text">{f.title}</p>
-                    <p className="text-xs text-secondary-text">{f.desc}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+          ))}
 
         {tab === "group" && (
           <div className="space-y-3">
             <div className="rounded-2xl border border-background-light bg-white/90 p-5">
               <p className="font-semibold text-primary-text">Your nickname</p>
               <p className="mt-1 text-sm text-secondary-text">
-                Shown on carts you send to the table captain and on the game leaderboard.
+                Shown on carts you send to the table captain and on the game
+                leaderboard.
               </p>
               <input
                 value={nick}
@@ -419,11 +574,14 @@ export default function OrderExperience({ orderId }: Props) {
             <div className="rounded-2xl border border-background-light bg-white/90 p-5">
               <p className="font-semibold text-primary-text">Cart transfer</p>
               <p className="mt-1 text-sm text-secondary-text">
-                Everyone builds their own cart, then sends it to the table captain via QR from the menu. The
-                captain places one order for the table.
+                Everyone builds their own cart, then sends it to the table
+                captain via QR from the menu. The captain places one order for
+                the table.
               </p>
               {contributors.length > 0 && (
-                <p className="mt-2 text-xs text-primary">This order includes carts from {contributors.join(", ")}.</p>
+                <p className="mt-2 text-xs text-primary">
+                  This order includes carts from {contributors.join(", ")}.
+                </p>
               )}
               <Link
                 href={menuHref}
@@ -438,8 +596,8 @@ export default function OrderExperience({ orderId }: Props) {
         {tab === "game" && (
           <div className="space-y-3">
             <p className="text-sm text-secondary-text">
-              Wait-time games{tableNumber ? ` for table ${tableNumber}` : ""}. Weekly leaderboard per restaurant —
-              prizes are house vouchers.
+              Wait-time games{tableNumber ? ` for table ${tableNumber}` : ""}.
+              Weekly leaderboard per restaurant — prizes are house vouchers.
             </p>
             {GAMES.map((g) => (
               <Link
@@ -453,7 +611,9 @@ export default function OrderExperience({ orderId }: Props) {
                   </span>
                   <div className="min-w-0">
                     <p className="font-semibold text-primary-text">{g.name}</p>
-                    <p className="mt-0.5 text-xs text-secondary-text">{g.desc}</p>
+                    <p className="mt-0.5 text-xs text-secondary-text">
+                      {g.desc}
+                    </p>
                   </div>
                 </div>
                 <Gamepad2 className="h-5 w-5 shrink-0 text-primary" />
@@ -463,7 +623,8 @@ export default function OrderExperience({ orderId }: Props) {
               href={`/games/leaderboard?${gameQuery}`}
               className="flex items-center justify-center gap-2 rounded-2xl border border-background-light bg-white/60 p-4 text-sm font-medium text-secondary-text"
             >
-              <Trophy className="h-4 w-4 text-primary" /> This week&apos;s leaderboard
+              <Trophy className="h-4 w-4 text-primary" /> This week&apos;s
+              leaderboard
             </Link>
           </div>
         )}
@@ -483,7 +644,14 @@ function OrderFacts({ order }: { order: PublicMenuOrder }) {
   const rows: [string, string][] = [
     ["Placed", placed],
     ["Name", order.customerName],
-    ["Payment", order.paymentMethod === "LEDGER_BLOCK" ? "Fuspay" : order.paymentMethod === "PAYSTACK" ? "Paystack" : order.paymentMethod],
+    [
+      "Payment",
+      order.paymentMethod === "LEDGER_BLOCK"
+        ? "Fuspay"
+        : order.paymentMethod === "PAYSTACK"
+          ? "Paystack"
+          : order.paymentMethod,
+    ],
   ];
   return (
     <dl className="mt-3 divide-y divide-background-light rounded-2xl border border-background-light bg-white/70 px-4 text-sm">

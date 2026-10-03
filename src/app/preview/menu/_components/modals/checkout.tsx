@@ -222,6 +222,7 @@ export default function CheckOutModal({
     };
     if (userId) payload.userId = userId;
     if (restaurantName) payload.restaurantName = restaurantName;
+    if (tableNumber) payload.tableNumber = tableNumber;
 
     setLoading(true);
     try {

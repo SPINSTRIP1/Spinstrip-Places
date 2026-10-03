@@ -72,6 +72,30 @@ export function rememberEmail(email: string) {
   write(KEYS.emails, [value, ...known].slice(0, 5));
 }
 
+/**
+ * The email this phone checked out with for a given order, if any. Every
+ * guest action (socket, chat, ping, rating) must present the order email,
+ * and only the ordering phone knows it.
+ */
+export function emailForOrder(orderEmail: string | null | undefined) {
+  const value = orderEmail?.trim().toLowerCase();
+  if (!value) return null;
+  return getKnownEmails().includes(value) ? value : null;
+}
+
+/**
+ * The API has no "already rated" flag yet, so remember this phone's rating
+ * to show it after a reload instead of offering the form again.
+ */
+export interface MyRating {
+  stars: number;
+  comment?: string;
+}
+export const getMyRating = (orderId: string) =>
+  read<MyRating | null>(`spinstrip:rating:${orderId}`, null);
+export const setMyRating = (orderId: string, rating: MyRating) =>
+  write(`spinstrip:rating:${orderId}`, rating);
+
 /* ─────────────────────────── Placed orders ─────────────────────────── */
 
 export interface OrderSnapshotLine {

@@ -190,11 +190,7 @@ export interface CreateMenuOrderPayload {
   paymentMethod: MenuPaymentMethod;
   callbackUrl?: string;
   items: { menuItemId: string; quantity: number }[];
-  /**
-   * Table the diner scanned. Not sent yet — the API rejects unknown fields
-   * and the backend is still adding this column. Kept client-side in the
-   * order snapshot (see src/lib/smart-menu.ts) until then.
-   */
+  /** Table the diner scanned (`?number=7`). Omit for takeaway. */
   tableNumber?: string;
 }
 
@@ -277,8 +273,21 @@ export interface PublicMenuOrder {
   cancelledAt: string | null;
   deletedAt: string | null;
   items: PublicMenuOrderItem[];
-  /** Not returned yet — the backend is adding table support. */
-  tableNumber?: string | number | null;
+  /** Dine-in table, null for takeaway. */
+  tableNumber: string | null;
+  /** Waiter currently processing the order, null when unassigned. */
+  waiterUserId: string | null;
+  /**
+   * The only reliable "who has it now" signal: ACCEPTED while a waiter holds
+   * the order, back to UNASSIGNED on release. `waiterReleasedAt` is NOT
+   * cleared when another waiter re-accepts, so never infer state from it.
+   */
+  waiterAssignment: "UNASSIGNED" | "ACCEPTED" | (string & {}) | null;
+  waiterAcceptedAt: string | null;
+  waiterReleasedAt: string | null;
+  /** Last guest ping; the API allows one per order per 60 seconds. */
+  pingedAt: string | null;
+  pingMessage: string | null;
 }
 
 export interface PublicOrdersPage {
@@ -299,8 +308,15 @@ const EMPTY_ORDERS: PublicOrdersPage = {
   lastpage: 1,
 };
 
-/** One order, polled so the status timeline moves without a refresh. */
-export function usePublicOrder(orderId: string | null | undefined) {
+/**
+ * One order. Pass `pollMs` while no live socket is connected (or while the
+ * payment is still settling — guests aren't sent `order.confirmed`), and
+ * `false` once socket events keep it fresh.
+ */
+export function usePublicOrder(
+  orderId: string | null | undefined,
+  pollMs: number | false = 15_000,
+) {
   const query = useQuery<PublicMenuOrder | null>({
     queryKey: ["public-order", orderId],
     queryFn: async () => {
@@ -315,7 +331,7 @@ export function usePublicOrder(orderId: string | null | undefined) {
       }
     },
     enabled: !!orderId,
-    refetchInterval: 15_000,
+    refetchInterval: pollMs,
   });
 
   return {

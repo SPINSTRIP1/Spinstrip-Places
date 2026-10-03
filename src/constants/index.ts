@@ -34,6 +34,12 @@ export const USER_ACCOUNT_URL = "https://spinstrip-user-account.fly.dev/api/v1";
 export const EVENTS_SERVER_URL = "https://spinstrip-events.fly.dev/api/v1";
 export const PLACES_API_URL = "https://spinstrip-places.fly.dev/api/v1";
 export const MENU_API_URL = "https://spinstrip-menu.fly.dev/api/v1";
+/**
+ * Menu realtime (Socket.IO). Connect to the merchant gateway origin, not the
+ * Menu Fly host; the gateway forwards this Engine.IO path to Menu.
+ */
+export const MENU_REALTIME_ORIGIN = new URL(SERVER_URL).origin;
+export const MENU_REALTIME_PATH = "/api/v1/menu/realtime";
 export const PLACE_TYPES = [
   { label: "Hotel", value: "HOTEL", icon: Hotel02Icon },
   { label: "Short Let", value: "SHORT_LET", icon: DepartementIcon },
