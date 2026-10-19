@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -15,6 +15,8 @@ import Success from "@/components/ui/success";
 import Loader from "@/components/loader";
 import { useFetch } from "@/hooks/use-fetch";
 import { EVENTS_SERVER_URL } from "@/constants";
+import ReviewComposer from "@/components/review-composer";
+import { readReviewContext, type ReviewContext } from "@/lib/reviews";
 
 interface VerifyPaymentResponse {
   status: string;
@@ -52,6 +54,13 @@ function SuccessContent() {
   const paymentStatus = data?.data?.status;
   const isVerified = paymentStatus === "COMPLETED";
   const isFailed = paymentStatus === "FAILED" || (!!error && !loading);
+
+  // The event and email from checkout, so the guest can review straight away.
+  const [reviewContext, setReviewContext] = useState<ReviewContext | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reading browser storage after mount
+    setReviewContext(readReviewContext("event"));
+  }, []);
 
   // Verifying state
   if (reference && loading) {
@@ -175,6 +184,19 @@ function SuccessContent() {
                 </div>
               </div>
             </>
+          )}
+
+          {/* A completed ticket purchase is all the events service needs to accept a review. */}
+          {isVerified && reviewContext && (
+            <div className="px-6 pb-2 pt-2">
+              <ReviewComposer
+                target={{ kind: "event", id: reviewContext.id }}
+                title={`Rate ${reviewContext.name || "this event"}`}
+                description="Your ticket is confirmed, so you can review the event now or after you've been."
+                defaultEmail={reviewContext.email}
+                className="bg-background/60"
+              />
+            </div>
           )}
 
           {/* Actions */}

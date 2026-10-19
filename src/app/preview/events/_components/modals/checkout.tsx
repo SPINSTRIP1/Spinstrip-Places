@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import z from "zod";
 import { AxiosError } from "axios";
 import toast from "react-hot-toast";
 import {
@@ -18,7 +17,8 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import SideModal from "@/components/side-modal";
 import SectionHeader from "@/components/section-header";
 import EmptyState from "@/components/empty-state";
-import { FormInput } from "@/components/ui/form-input";
+import ContactFields from "@/components/checkout/contact-fields";
+import { EMPTY_CONTACT, contactSchema, splitFullName, type ContactFormData } from "@/lib/contact";
 import CheckoutSteps from "@/components/checkout/checkout-steps";
 import CheckoutActions from "@/components/checkout/checkout-actions";
 import OptionCard from "@/components/checkout/option-card";
@@ -34,6 +34,7 @@ import { PublicEvent } from "@/hooks/use-events";
 import { EVENTS_SERVER_URL } from "@/constants";
 import apiClient from "@/lib/api/axios-client";
 import { handleAxiosError } from "@/lib/api/handle-axios-error";
+import { saveReviewContext } from "@/lib/reviews";
 import { formatAmount, formatDateDisplay } from "@/utils";
 
 interface AddEventsModalProps {
@@ -48,26 +49,9 @@ interface TicketSelection {
   price: number;
 }
 
-const registerSchema = z
-  .object({
-    firstName: z
-      .string()
-      .min(2, "First name must be at least 2 characters")
-      .max(50, "First name must be less than 50 characters"),
-    lastName: z
-      .string()
-      .min(2, "Last name must be at least 2 characters")
-      .max(50, "Last name must be less than 50 characters"),
+const registerSchema = contactSchema;
 
-    email: z.email("Please enter a valid email address"),
-    confirmEmail: z.string().min(1, "Please confirm your email address"),
-  })
-  .refine((data) => data.email === data.confirmEmail, {
-    message: "Emails don't match",
-    path: ["confirmEmail"],
-  });
-
-type RegisterFormData = z.infer<typeof registerSchema>;
+type RegisterFormData = ContactFormData;
 
 type EventPaymentProvider = "PAYSTACK" | "PAYONUS";
 
@@ -166,12 +150,7 @@ export default function CheckOutModal({
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     mode: "onChange",
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      confirmEmail: "",
-    },
+    defaultValues: EMPTY_CONTACT,
   });
 
   const handleReset = useCallback(() => {
@@ -192,10 +171,11 @@ export default function CheckOutModal({
       const res = await apiClient.post<RegisterResponse>(
         `${EVENTS_SERVER_URL}/events/public/${event.id}/register`,
         {
-          firstName: values.firstName,
-          lastName: values.lastName,
+          ...splitFullName(values.fullName),
           email: values.email,
-          confirmEmail: values.confirmEmail,
+          // The API still requires `confirmEmail`; the form asks for the email once.
+          // `phone` is collected but not sent: the registration API rejects it for now.
+          confirmEmail: values.email,
           tickets: selectedTickets.map((ticket) => ({
             ticketTierId: ticket.tierId,
             quantity: ticket.quantity,
@@ -208,6 +188,13 @@ export default function CheckOutModal({
       );
 
       const data = res.data.data;
+      // Lets the success page offer a review with the checkout email prefilled.
+      saveReviewContext({
+        kind: "event",
+        id: event.id as string,
+        name: event.name ?? "",
+        email: values.email,
+      });
       const paymentUrl = data?.payment?.authorizationUrl;
       if (paymentUrl) {
         setLoading(false);
@@ -383,36 +370,7 @@ export default function CheckOutModal({
                   </Link>{" "}
                   to check out faster next time.
                 </p>
-                <div className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <FormInput
-                      control={form.control}
-                      name="firstName"
-                      label="First Name"
-                      placeholder="Enter First name"
-                      type="text"
-                    />
-                    <FormInput
-                      control={form.control}
-                      name="lastName"
-                      label="Last Name"
-                      placeholder="Enter Last name"
-                      type="text"
-                    />
-                  </div>
-                  <FormInput
-                    control={form.control}
-                    name="email"
-                    label="Email Address"
-                    placeholder="Enter Email Address"
-                  />
-                  <FormInput
-                    control={form.control}
-                    name="confirmEmail"
-                    label="Confirm Email Address"
-                    placeholder="Confirm Email Address"
-                  />
-                </div>
+                <ContactFields control={form.control} />
               </section>
 
               {!isFree && (

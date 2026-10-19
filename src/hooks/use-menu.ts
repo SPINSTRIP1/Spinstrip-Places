@@ -190,9 +190,48 @@ export interface CreateMenuOrderPayload {
   paymentMethod: MenuPaymentMethod;
   callbackUrl?: string;
   items: { menuItemId: string; quantity: number }[];
-  /** Table the diner scanned (`?number=7`). Omit for takeaway. */
+  /** Table the diner scanned (`?number=7`) — the merchant's integer table number. Omit for takeaway. */
   tableNumber?: string;
+  /** The matching dining table's id (from `usePublicTables`). Omit for takeaway. */
+  tableId?: string;
 }
+
+/** A merchant's dining table as guests see it (`GET /menu/public/tables`, no bank details). */
+export interface PublicTable {
+  id: string;
+  number: number;
+  name: string | null;
+  description: string | null;
+  seats: number;
+}
+
+/**
+ * The merchant's tables, so a scanned table number (`?number=7`) can be matched to a real table
+ * and its id sent with the order.
+ */
+export function usePublicTables(merchantUserId: string | null | undefined) {
+  const { data, isLoading } = useQuery<PublicTable[]>({
+    queryKey: ["public-tables", merchantUserId],
+    queryFn: async () => {
+      try {
+        const response = await api.get(`${MENU_API_URL}/menu/public/tables`, {
+          params: { merchantUserId },
+        });
+        return (response.data?.data ?? []) as PublicTable[];
+      } catch (error) {
+        console.log("Error fetching tables:", error);
+        return [];
+      }
+    },
+    enabled: !!merchantUserId,
+    staleTime: 5 * 60 * 1000,
+  });
+  return { tables: data ?? [], isLoading };
+}
+
+/** The real table for a scanned number, or null when the number isn't one of the merchant's tables. */
+export const findTable = (tables: PublicTable[], tableNumber: string | null | undefined) =>
+  tableNumber ? (tables.find((table) => String(table.number) === tableNumber.trim()) ?? null) : null;
 
 /**
  * The docs don't publish a response schema for order creation, so the

@@ -26,13 +26,14 @@ import MediaImage from "@/components/media-image";
 import DishCard from "@/components/cards/dish-card";
 import ItemSheet, { maxQuantity } from "@/components/restaurant/ItemSheet";
 import RestaurantLogo from "@/components/restaurant/RestaurantLogo";
+import ReviewComposer from "@/components/review-composer";
 import TransferSheet from "@/components/restaurant/TransferSheet";
 import { Button } from "@/components/ui/button";
 import CheckOutModal, {
   type MenuCart,
 } from "@/app/preview/menu/_components/modals/checkout";
 import { sectionThemeVars } from "@/data/listings";
-import { isMenuItemOrderable, type PublicMenuItem } from "@/hooks/use-menu";
+import { findTable, isMenuItemOrderable, usePublicTables, type PublicMenuItem } from "@/hooks/use-menu";
 import { useRestaurant } from "@/hooks/use-restaurants";
 import {
   decodeCartTransfer,
@@ -68,6 +69,7 @@ export default function RestaurantPage({ merchantId }: Props) {
   const searchParams = useSearchParams();
   const highlightedItemId = searchParams.get("item");
   const transferCode = searchParams.get("transfer");
+  const scannedAtTable = tableFromSearch(searchParams) !== null;
 
   const { restaurant, isLoading } = useRestaurant(merchantId);
 
@@ -79,6 +81,9 @@ export default function RestaurantPage({ merchantId }: Props) {
   const [cart, setCart] = useState<MenuCart>({});
   const [tags, setTags] = useState<CartTags>({});
   const [tableNumber, setTableNumber] = useState<string | null>(null);
+  // Match the scanned number to one of the merchant's real tables (its id goes on the order).
+  const { tables: merchantTables } = usePublicTables(merchantId);
+  const scannedTable = findTable(merchantTables, tableNumber);
   const restored = useRef(false);
   const autoOpened = useRef(false);
   const transferApplied = useRef(false);
@@ -285,6 +290,7 @@ export default function RestaurantPage({ merchantId }: Props) {
   const tableChip = tableNumber && (
     <span className="sec-soft sec-text inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold">
       <Users className="h-3.5 w-3.5" /> Table {tableNumber}
+      {scannedTable?.name ? ` · ${scannedTable.name}` : ""}
     </span>
   );
 
@@ -298,12 +304,15 @@ export default function RestaurantPage({ merchantId }: Props) {
       {/* Top bar */}
       <header className="fixed inset-x-0 top-0 z-40 border-b border-background-light bg-white/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
-          <Link
-            href="/"
-            className="btn-press flex shrink-0 items-center gap-1.5 rounded-full border border-background-light bg-white px-3.5 py-2 text-sm font-semibold text-primary-text hover:border-[color:var(--sec-border)]"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back
-          </Link>
+          {/* A table QR (`?number=`) is the diner's entry point, so there's nowhere to go back to. */}
+          {!scannedAtTable && (
+            <Link
+              href="/"
+              className="btn-press flex shrink-0 items-center gap-1.5 rounded-full border border-background-light bg-white px-3.5 py-2 text-sm font-semibold text-primary-text hover:border-[color:var(--sec-border)]"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back
+            </Link>
+          )}
           <div className="flex min-w-0 items-center gap-2">
             <RestaurantLogo
               name={restaurant.name}
@@ -573,6 +582,16 @@ export default function RestaurantPage({ merchantId }: Props) {
         )}
       </section>
 
+      {/* Reviews */}
+      <section className="mx-auto mt-10 max-w-7xl px-4 sm:px-6">
+        <ReviewComposer
+          target={{ kind: "menu", id: merchantId }}
+          title={`Review ${restaurant.name}`}
+          description="Ordered here before? Rate your meal and tell others what it was like."
+          className="max-w-xl"
+        />
+      </section>
+
       {/* Place order bar */}
       {cartCount > 0 && !checkoutOpen && !openItem && !transferOpen && (
         <div
@@ -642,7 +661,8 @@ export default function RestaurantPage({ merchantId }: Props) {
           cart={cart}
           onCartChange={handleCartChange}
           restaurantName={restaurant.isNamed ? restaurant.name : undefined}
-          tableNumber={tableNumber}
+          tableNumber={scannedTable ? tableNumber : null}
+          tableId={scannedTable?.id ?? null}
           lineTags={tags}
           onTransfer={() => {
             setCheckoutOpen(false);

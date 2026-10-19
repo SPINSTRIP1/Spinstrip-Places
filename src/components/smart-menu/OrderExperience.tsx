@@ -19,6 +19,7 @@ import {
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
 import MediaImage from "@/components/media-image";
+import ReviewComposer from "@/components/review-composer";
 import { orderStatusMeta } from "@/components/smart-menu/OrdersList";
 import WaiterPanel, {
   TIP_REFERENCE_KEY,
@@ -284,6 +285,10 @@ export default function OrderExperience({ orderId }: Props) {
   const statusMeta = status ? orderStatusMeta(status) : null;
   const stepIdx = stepForOrder(order);
   const released = waiterStateOf(order) === "released";
+  // The menu service accepts a review once the order is paid.
+  const canReview = ["CONFIRMED", "PROCESSING", "COMPLETED"].includes(
+    order?.status?.toUpperCase() ?? "",
+  );
 
   const qrSource = useMemo<OrderSnapshot | null>(() => {
     if (!merchantId) return null;
@@ -535,6 +540,15 @@ export default function OrderExperience({ orderId }: Props) {
                 Your waiter handed this order over. Another waiter will pick it
                 up shortly.
               </p>
+            )}
+            {canReview && merchantId && (
+              <ReviewComposer
+                target={{ kind: "menu", id: merchantId }}
+                title={`Review ${restaurantName}`}
+                description="How was your meal? Rate it and tell others what it was like."
+                defaultEmail={email}
+                className="bg-white/90"
+              />
             )}
           </div>
         )}

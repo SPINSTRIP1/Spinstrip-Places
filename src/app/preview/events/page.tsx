@@ -3,7 +3,6 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import toast from "react-hot-toast";
 import {
   Calendar03Icon,
   Call02Icon,
@@ -11,7 +10,6 @@ import {
   Location01Icon,
   Mail01Icon,
   SearchList01Icon,
-  StarIcon,
   Ticket01Icon,
   UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
@@ -26,83 +24,25 @@ import GalleryStrip from "@/components/gallery-strip";
 import PostsRail, { RailPost } from "@/components/posts-rail";
 import InfoRow from "@/components/info-row";
 import EmptyState from "@/components/empty-state";
-import MediaImage from "@/components/media-image";
 import Loader from "@/components/loader";
+import BackLink from "@/components/back-link";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import ReviewComposer from "@/components/review-composer";
 import CheckOutModal from "./_components/modals/checkout";
 import { usePublicEvent } from "@/hooks/use-events";
+import { useMerchantPreview } from "@/lib/merchant-preview";
 import { formatAmount, formatDateDisplay, formatEnumLabel } from "@/utils";
 import { cn } from "@/lib/utils";
 
-interface EventReview {
-  id: string;
-  name: string;
-  avatar?: string;
-  rating: number;
-  date: string;
-  body: string;
-}
-
-function ReviewComposer() {
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState("");
-
-  const canSubmit = rating > 0 && comment.trim().length > 0;
-
-  return (
-    <div className="rounded-3xl border border-background-light bg-white p-4">
-      <h3 className="text-sm font-bold text-primary-text">Review this event</h3>
-      <p className="mt-1 text-sm text-secondary-text">
-        Rate your experience and tell others what it was like.
-      </p>
-
-      <div className="mt-3 flex items-center gap-x-1">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button
-            key={star}
-            type="button"
-            aria-label={`Rate ${star} star${star === 1 ? "" : "s"}`}
-            onClick={() => setRating(star)}
-            className="btn-press rounded-full p-1"
-          >
-            <HugeiconsIcon
-              icon={StarIcon}
-              size={24}
-              color={star <= rating ? "#9E76F8" : "#C8C8C8"}
-              fill={star <= rating ? "#9E76F8" : "#C8C8C8"}
-            />
-          </button>
-        ))}
-      </div>
-
-      <Textarea
-        value={comment}
-        onChange={(event) => setComment(event.target.value)}
-        placeholder="Share your thoughts on this event..."
-        className="my-4 border-background-light bg-background"
-        rows={5}
-      />
-      <Button
-        disabled={!canSubmit}
-        onClick={() => {
-          toast.success("Thanks for the feedback — reviews go live soon.");
-          setRating(0);
-          setComment("");
-        }}
-      >
-        Submit review
-      </Button>
-    </div>
-  );
-}
-
 function EventsPageContent() {
   const posts: RailPost[] = [];
-  const reviews: EventReview[] = [];
   const [isModalOpen, setIsModalOpen] = useState(false);
   const id = useSearchParams().get("id");
-  const { event, isLoading: loading } = usePublicEvent(id);
+  const { event: publicEvent, isLoading: eventLoading } = usePublicEvent(id);
+  // Inside the merchant dashboard's preview modal, a draft event comes from the dashboard.
+  const preview = useMerchantPreview<NonNullable<typeof publicEvent>>("event", id);
+  const event = publicEvent ?? preview.data;
+  const loading = eventLoading || (!publicEvent && preview.waiting);
 
   if (loading) return <Loader />;
 
@@ -145,6 +85,8 @@ function EventsPageContent() {
   return (
     <section className="pb-28 lg:pb-6">
       <MaxWidthWrapper className="space-y-10">
+        <BackLink label="All events" />
+
         <DetailHero
           image={event.images?.[0]}
           title={event.name}
@@ -312,61 +254,14 @@ function EventsPageContent() {
 
         {/* Reviews */}
         <ContainerWrapper className="space-y-4">
-          <SectionHeader
-            title="Reviews"
-            badge={reviews.length ? `${reviews.length}` : undefined}
-            href={reviews.length ? "/" : undefined}
-          />
-          {reviews.length === 0 ? (
-            <EmptyState
-              icon={<HugeiconsIcon icon={StarIcon} size={26} />}
-              title="No reviews yet"
-              description="Be the first to share your experience of this event."
+          <SectionHeader title="Reviews" />
+          {event.id && (
+            <ReviewComposer
+              target={{ kind: "event", id: event.id }}
+              title="Review this event"
+              description="Went to this event? Rate it and tell others what it was like."
             />
-          ) : (
-            <div className="space-y-5">
-              {reviews.map((review) => (
-                <article key={review.id} className="space-y-2">
-                  <div className="flex items-center gap-x-3">
-                    <MediaImage
-                      src={review.avatar}
-                      alt={review.name}
-                      className="h-10 w-10 shrink-0 rounded-full"
-                    />
-                    <div>
-                      <p className="text-sm font-bold text-primary-text">
-                        {review.name}
-                      </p>
-                      <div className="flex items-center gap-x-2">
-                        <div className="flex items-center gap-x-0.5">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <HugeiconsIcon
-                              key={star}
-                              icon={StarIcon}
-                              size={13}
-                              color={
-                                star <= review.rating ? "#9E76F8" : "#C8C8C8"
-                              }
-                              fill={
-                                star <= review.rating ? "#9E76F8" : "#C8C8C8"
-                              }
-                            />
-                          ))}
-                        </div>
-                        <p className="text-xs text-secondary-text">
-                          {review.date}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-sm leading-relaxed text-secondary-text">
-                    {review.body}
-                  </p>
-                </article>
-              ))}
-            </div>
           )}
-          <ReviewComposer />
         </ContainerWrapper>
 
         <ContainerWrapper>

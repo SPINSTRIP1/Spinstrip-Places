@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import z from "zod";
 import { AxiosError } from "axios";
 import toast from "react-hot-toast";
 import {
@@ -20,7 +19,8 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import SideModal from "@/components/side-modal";
 import SectionHeader from "@/components/section-header";
 import EmptyState from "@/components/empty-state";
-import { FormInput } from "@/components/ui/form-input";
+import ContactFields from "@/components/checkout/contact-fields";
+import { EMPTY_CONTACT, contactSchema, normalisePhone, type ContactFormData } from "@/lib/contact";
 import CheckoutSteps from "@/components/checkout/checkout-steps";
 import CheckoutActions from "@/components/checkout/checkout-actions";
 import MediaImage from "@/components/media-image";
@@ -71,6 +71,8 @@ interface CheckOutModalProps {
   restaurantName?: string;
   /** Table the diner scanned, from the QR code on the table. */
   tableNumber?: string | null;
+  /** Id of that table (only when the number matched one of the merchant's tables). */
+  tableId?: string | null;
   /** Nicknames of diners whose transferred carts fed each line. */
   lineTags?: CartTags;
   /** Shows "Send cart to table captain" on the review step. */
@@ -82,30 +84,9 @@ interface CheckOutModalProps {
  * single `customerName` (max 200) and `phone` (max 20); the name is split
  * here to match the places and events checkouts.
  */
-const orderSchema = z
-  .object({
-    firstName: z
-      .string()
-      .min(2, "First name must be at least 2 characters")
-      .max(50, "First name must be less than 50 characters"),
-    lastName: z
-      .string()
-      .min(2, "Last name must be at least 2 characters")
-      .max(50, "Last name must be less than 50 characters"),
-    email: z.email("Please enter a valid email address"),
-    confirmEmail: z.string().min(1, "Please confirm your email address"),
-    phone: z
-      .string()
-      .min(10, "Please enter a valid phone number")
-      .max(20, "Phone number must be 20 characters or fewer")
-      .regex(/^\+?[0-9][0-9\s-]{8,18}$/, "Please enter a valid phone number"),
-  })
-  .refine((data) => data.email === data.confirmEmail, {
-    message: "Emails don't match",
-    path: ["confirmEmail"],
-  });
+const orderSchema = contactSchema;
 
-type OrderFormData = z.infer<typeof orderSchema>;
+type OrderFormData = ContactFormData;
 
 const PAYMENT_OPTIONS = [
   {
@@ -142,6 +123,7 @@ export default function CheckOutModal({
   userId,
   restaurantName,
   tableNumber,
+  tableId,
   lineTags,
   onTransfer,
 }: CheckOutModalProps) {
@@ -193,13 +175,7 @@ export default function CheckOutModal({
   const form = useForm<OrderFormData>({
     resolver: zodResolver(orderSchema),
     mode: "onChange",
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      confirmEmail: "",
-      phone: "",
-    },
+    defaultValues: EMPTY_CONTACT,
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
@@ -210,9 +186,9 @@ export default function CheckOutModal({
 
     const payload: CreateMenuOrderPayload = {
       merchantUserId: item.userId,
-      customerName: `${values.firstName.trim()} ${values.lastName.trim()}`,
+      customerName: values.fullName.trim().replace(/\s+/g, " "),
       email: values.email,
-      phone: values.phone.replace(/[\s-]/g, ""),
+      phone: normalisePhone(values.phone),
       paymentMethod,
       callbackUrl: `${window.location.origin}/preview/menu/success`,
       items: lines.map((line) => ({
@@ -222,7 +198,11 @@ export default function CheckOutModal({
     };
     if (userId) payload.userId = userId;
     if (restaurantName) payload.restaurantName = restaurantName;
-    if (tableNumber) payload.tableNumber = tableNumber;
+    // Only tag the order to a table the merchant actually has; an unknown number would be rejected.
+    if (tableNumber && tableId) {
+      payload.tableNumber = tableNumber;
+      payload.tableId = tableId;
+    }
 
     setLoading(true);
     try {
@@ -494,43 +474,7 @@ export default function CheckOutModal({
                   </Link>{" "}
                   to check out faster next time.
                 </p>
-                <div className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <FormInput
-                      control={form.control}
-                      name="firstName"
-                      label="First Name"
-                      placeholder="Enter First name"
-                      type="text"
-                    />
-                    <FormInput
-                      control={form.control}
-                      name="lastName"
-                      label="Last Name"
-                      placeholder="Enter Last name"
-                      type="text"
-                    />
-                  </div>
-                  <FormInput
-                    control={form.control}
-                    name="email"
-                    label="Email Address"
-                    placeholder="Enter Email Address"
-                  />
-                  <FormInput
-                    control={form.control}
-                    name="confirmEmail"
-                    label="Confirm Email Address"
-                    placeholder="Confirm Email Address"
-                  />
-                  <FormInput
-                    control={form.control}
-                    name="phone"
-                    label="Phone Number"
-                    placeholder="+2348012345678"
-                    type="text"
-                  />
-                </div>
+                <ContactFields control={form.control} />
               </section>
 
               <section className="space-y-3">

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import MediaImage from "@/components/media-image";
 import { formatAmount } from "@/utils";
@@ -12,7 +13,10 @@ interface FacilityCardProps {
   accessType: string;
   /** Fees arrive from the API as decimal strings. */
   price: number | string;
+  /** "Book" button — opens the booking checkout directly. */
   onClick?: () => void;
+  /** When set, the card itself links to the facility's own page. */
+  href?: string;
 }
 
 export default function FacilityCard({
@@ -23,12 +27,13 @@ export default function FacilityCard({
   accessType,
   price,
   onClick,
+  href,
 }: FacilityCardProps) {
   const amount = typeof price === "string" ? parseFloat(price) : price;
   const isFree = !amount || Number.isNaN(amount);
 
   return (
-    <article className="listing-card group flex h-full flex-col overflow-hidden rounded-3xl border border-background-light bg-white">
+    <article className="listing-card group relative flex h-full flex-col overflow-hidden rounded-3xl border border-background-light bg-white">
       <div className="relative">
         <MediaImage
           src={imgUrl}
@@ -50,7 +55,14 @@ export default function FacilityCard({
 
       <div className="flex flex-1 flex-col gap-y-2 p-4">
         <h3 className="text-base font-bold leading-snug text-primary-text">
-          {title}
+          {href ? (
+            // Stretched link: the whole card opens the facility page; the Book button sits above it.
+            <Link href={href} className="after:absolute after:inset-0 after:content-['']">
+              {title}
+            </Link>
+          ) : (
+            title
+          )}
         </h3>
         {description && (
           <p className="line-clamp-2 text-sm leading-relaxed text-secondary-text">
@@ -68,7 +80,7 @@ export default function FacilityCard({
             </p>
           </div>
           {onClick && (
-            <Button size="lg" onClick={onClick} className="btn-press h-11 px-7">
+            <Button size="lg" onClick={onClick} className="btn-press relative z-10 h-11 px-7">
               Book
             </Button>
           )}

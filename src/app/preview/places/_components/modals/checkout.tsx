@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import z from "zod";
 import { format, differenceInCalendarDays } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { AxiosError } from "axios";
@@ -21,7 +20,8 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import SideModal from "@/components/side-modal";
 import SectionHeader from "@/components/section-header";
 import EmptyState from "@/components/empty-state";
-import { FormInput } from "@/components/ui/form-input";
+import ContactFields from "@/components/checkout/contact-fields";
+import { EMPTY_CONTACT, contactSchema, normalisePhone, splitFullName, type ContactFormData } from "@/lib/contact";
 import { Calendar } from "@/components/ui/calendar";
 import CheckoutSteps from "@/components/checkout/checkout-steps";
 import CheckoutActions from "@/components/checkout/checkout-actions";
@@ -45,6 +45,7 @@ import { formatAmount } from "@/utils";
 import { PLACES_API_URL } from "@/constants";
 import apiClient from "@/lib/api/axios-client";
 import { handleAxiosError } from "@/lib/api/handle-axios-error";
+import { saveReviewContext } from "@/lib/reviews";
 
 interface CheckOutModalProps {
   isOpen: boolean;
@@ -62,29 +63,9 @@ interface CheckOutModalProps {
  * live in component state (they're pickers, not text inputs); everything else
  * is a form field.
  */
-const bookingSchema = z
-  .object({
-    firstName: z
-      .string()
-      .min(2, "First name must be at least 2 characters")
-      .max(50, "First name must be less than 50 characters"),
-    lastName: z
-      .string()
-      .min(2, "Last name must be at least 2 characters")
-      .max(50, "Last name must be less than 50 characters"),
-    email: z.email("Please enter a valid email address"),
-    confirmEmail: z.string().min(1, "Please confirm your email address"),
-    phone: z
-      .string()
-      .min(10, "Please enter a valid phone number")
-      .regex(/^\+?[0-9][0-9\s-]{8,19}$/, "Please enter a valid phone number"),
-  })
-  .refine((data) => data.email === data.confirmEmail, {
-    message: "Emails don't match",
-    path: ["confirmEmail"],
-  });
+const bookingSchema = contactSchema;
 
-type BookingFormData = z.infer<typeof bookingSchema>;
+type BookingFormData = ContactFormData;
 
 const DEFAULT_CHECK_IN_TIME = "14:00";
 const DEFAULT_CHECK_OUT_TIME = "11:00";
@@ -181,13 +162,7 @@ export default function CheckOutModal({
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
     mode: "onChange",
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      confirmEmail: "",
-      phone: "",
-    },
+    defaultValues: EMPTY_CONTACT,
   });
 
   const handleReset = useCallback(() => {
@@ -223,11 +198,11 @@ export default function CheckOutModal({
       facilityId: selectedFacility.id,
       checkInDate,
       checkOutDate,
-      firstName: values.firstName,
-      lastName: values.lastName,
+      ...splitFullName(values.fullName),
       email: values.email,
-      confirmEmail: values.confirmEmail,
-      phone: values.phone,
+      // The API still requires `confirmEmail`; the form asks for the email once.
+      confirmEmail: values.email,
+      phone: normalisePhone(values.phone),
       marketingConsentPlace: consents.place,
       marketingConsentNews: consents.news,
       callbackUrl: `${window.location.origin}/preview/places/success`,
@@ -248,6 +223,13 @@ export default function CheckOutModal({
       );
 
       const data = res.data.data;
+      // Lets the success page offer a review with the checkout email prefilled.
+      saveReviewContext({
+        kind: "place",
+        id: place.id as string,
+        name: place.name ?? "",
+        email: values.email,
+      });
       const paymentUrl =
         data?.payment?.authorizationUrl ?? data?.authorizationUrl;
 
@@ -539,43 +521,7 @@ export default function CheckOutModal({
                   </Link>{" "}
                   to check out faster next time.
                 </p>
-                <div className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <FormInput
-                      control={form.control}
-                      name="firstName"
-                      label="First Name"
-                      placeholder="Enter First name"
-                      type="text"
-                    />
-                    <FormInput
-                      control={form.control}
-                      name="lastName"
-                      label="Last Name"
-                      placeholder="Enter Last name"
-                      type="text"
-                    />
-                  </div>
-                  <FormInput
-                    control={form.control}
-                    name="email"
-                    label="Email Address"
-                    placeholder="Enter Email Address"
-                  />
-                  <FormInput
-                    control={form.control}
-                    name="confirmEmail"
-                    label="Confirm Email Address"
-                    placeholder="Confirm Email Address"
-                  />
-                  <FormInput
-                    control={form.control}
-                    name="phone"
-                    label="Phone Number"
-                    placeholder="+2348012345678"
-                    type="text"
-                  />
-                </div>
+                <ContactFields control={form.control} />
               </section>
 
               {!isFree && (

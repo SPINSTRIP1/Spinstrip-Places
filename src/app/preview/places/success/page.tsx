@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -17,6 +17,8 @@ import { useFetch } from "@/hooks/use-fetch";
 import { PLACES_API_URL } from "@/constants";
 import { VerifyPlacePaymentResponse } from "@/hooks/use-places";
 import { formatAmount } from "@/utils";
+import { placeHref } from "@/lib/links";
+import { readReviewContext, type ReviewContext } from "@/lib/reviews";
 
 function DashedDivider() {
   return (
@@ -49,6 +51,13 @@ function SuccessContent() {
   const amount = data?.data?.amount;
   const isVerified = paymentStatus === "COMPLETED";
   const isFailed = paymentStatus === "FAILED" || (!!error && !loading);
+
+  // The place just booked, for the "review after your visit" pointer.
+  const [reviewContext, setReviewContext] = useState<ReviewContext | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reading browser storage after mount
+    setReviewContext(readReviewContext("place"));
+  }, []);
 
   // Verifying state
   if (reference && loading) {
@@ -172,6 +181,18 @@ function SuccessContent() {
                     We&apos;ll remind you before your check-in date.
                   </p>
                 </div>
+                {reviewContext && (
+                  <p className="pt-1 text-sm text-secondary-text">
+                    After your visit, you can{" "}
+                    <Link
+                      href={placeHref(reviewContext.id)}
+                      className="font-semibold text-primary hover:underline"
+                    >
+                      review {reviewContext.name || "this place"}
+                    </Link>{" "}
+                    with the email you booked with.
+                  </p>
+                )}
               </div>
             </>
           )}

@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Call02Icon,
   Globe02Icon,
@@ -10,6 +10,7 @@ import {
   Mail01Icon,
   SearchList01Icon,
   Sofa01Icon,
+  SpoonAndForkIcon,
   StarIcon,
   Time01Icon,
 } from "@hugeicons/core-free-icons";
@@ -26,10 +27,17 @@ import InfoRow from "@/components/info-row";
 import EmptyState from "@/components/empty-state";
 import MediaImage from "@/components/media-image";
 import FacilityCard from "@/components/facility-card";
+import DishCard from "@/components/cards/dish-card";
 import Loader from "@/components/loader";
+import BackLink from "@/components/back-link";
 import { Button } from "@/components/ui/button";
+import ReviewComposer from "@/components/review-composer";
 import CheckOutModal from "./_components/modals/checkout";
 import { PublicFacility, usePublicPlace } from "@/hooks/use-places";
+import { usePublicMenu } from "@/hooks/use-menu";
+import { useMerchantPreview } from "@/lib/merchant-preview";
+import type { PublicPlace } from "@/hooks/use-places";
+import { facilityHref, restaurantHref } from "@/lib/links";
 import { PLACE_TYPES } from "@/constants";
 import { cn, getOperatingHoursDisplay } from "@/lib/utils";
 import { formatAmount, formatEnumLabel } from "@/utils";
@@ -48,7 +56,19 @@ function PlacesPageContent() {
   const [tab, setTab] = useState<Tab>("home");
 
   const id = useSearchParams().get("id");
-  const { place, isLoading: loading } = usePublicPlace(id);
+  const { place: publicPlace, isLoading: placeLoading } = usePublicPlace(id);
+  // Inside the merchant dashboard's preview modal, an unpublished place comes from the dashboard.
+  const preview = useMerchantPreview<PublicPlace>("place", id);
+  const place = publicPlace ?? preview.data;
+  const loading = placeLoading || (!publicPlace && preview.waiting);
+  const router = useRouter();
+  // A place whose merchant also has a menu is a restaurant: show its dishes, which open the
+  // restaurant page (where guests order) with that dish selected.
+  const { menuItems, count: menuCount } = usePublicMenu(
+    { userId: place?.userId, limit: 8 },
+    { enabled: !!place?.userId },
+  );
+  const dishes = menuItems.filter((dish) => !dish.isHidden);
   const posts: RailPost[] = [];
 
   const openBooking = (facility?: PublicFacility) => {
@@ -102,6 +122,8 @@ function PlacesPageContent() {
   return (
     <section className="pb-28 lg:pb-6">
       <MaxWidthWrapper className="space-y-8">
+        <BackLink label="All places" />
+
         {/* Merchant bar + section tabs */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-x-3">
@@ -123,7 +145,7 @@ function PlacesPageContent() {
           <div
             role="tablist"
             aria-label="Place sections"
-            className="flex shrink-0 gap-1 rounded-full border border-background-light bg-white p-1"
+            className="flex shrink-0 gap-1 md:w-fit rounded-full border border-background-light bg-white p-1"
           >
             {TABS.map((item) => (
               <button
@@ -132,7 +154,7 @@ function PlacesPageContent() {
                 aria-selected={tab === item.value}
                 onClick={() => setTab(item.value)}
                 className={cn(
-                  "seg-pill rounded-full px-6 py-2 text-sm font-bold transition-colors",
+                  "seg-pill w-full rounded-full px-6 py-2 text-sm font-bold transition-colors",
                   tab === item.value
                     ? "bg-primary text-white"
                     : "text-secondary-text hover:text-primary-text",
@@ -178,7 +200,7 @@ function PlacesPageContent() {
                 badge={facilities.length ? `${facilities.length}` : undefined}
                 subtitle={
                   facilities.length
-                    ? "Pick a facility to check availability and book."
+                    ? "Open a facility to see everything about it, or book straight away."
                     : undefined
                 }
               />
@@ -221,8 +243,14 @@ function PlacesPageContent() {
                       description={facility.description}
                       imgUrl={facility.images?.[0] || place.coverImage || ""}
                       facilityType={facility.facilityCategory}
-                      accessType={facility.accessType || ""}
+                      // From the rates, like the checkout (the API's accessType can be stale).
+                      accessType={
+                        (facility.fees ?? []).some((fee) => fee.isActive !== false && Number(fee.amount) > 0)
+                          ? "PAID"
+                          : "FREE"
+                      }
                       price={facility.fees?.[0]?.amount ?? 0}
+                      href={facilityHref(place.id as string, facility.id)}
                       onClick={() => openBooking(facility)}
                     />
                   ))}
@@ -230,11 +258,61 @@ function PlacesPageContent() {
               )}
             </section>
 
+            {dishes.length > 0 && place.userId && (
+              <section className="space-y-4">
+                <SectionHeader
+                  title="On the menu"
+                  badge={`${menuCount || dishes.length}`}
+                  subtitle="Tap a dish to order from this kitchen."
+                  href={restaurantHref(place.userId)}
+                  linkLabel="Full menu"
+                />
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {dishes.map((dish, index) => (
+                    <DishCard
+                      key={dish.id}
+                      item={dish}
+                      index={index}
+                      onOpen={(item) =>
+                        router.push(
+                          restaurantHref(place.userId as string, item.id),
+                        )
+                      }
+                    />
+                  ))}
+                </div>
+                {(menuCount || 0) > dishes.length && (
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="lg"
+                    className="w-full sm:w-auto"
+                  >
+                    <Link href={restaurantHref(place.userId)}>
+                      <HugeiconsIcon icon={SpoonAndForkIcon} size={18} /> See
+                      all {menuCount} dishes
+                    </Link>
+                  </Button>
+                )}
+              </section>
+            )}
+
             <GalleryStrip
               images={place.images}
               alt={place.name}
               emptyDescription="This place hasn't uploaded photos yet."
             />
+
+            {place.id && (
+              <section className="space-y-4">
+                <SectionHeader title="Reviews" />
+                <ReviewComposer
+                  target={{ kind: "place", id: place.id }}
+                  title="Review this place"
+                  description="Visited recently? Rate your stay and tell others what it was like."
+                />
+              </section>
+            )}
 
             <ContainerWrapper>
               <PostsRail
@@ -293,7 +371,9 @@ function PlacesPageContent() {
                 icon={Mail01Icon}
                 label="Email"
                 value={place.emails?.join(", ")}
-                href={place.emails?.[0] ? `mailto:${place.emails[0]}` : undefined}
+                href={
+                  place.emails?.[0] ? `mailto:${place.emails[0]}` : undefined
+                }
               />
               <InfoRow
                 icon={Globe02Icon}
