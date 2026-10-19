@@ -120,7 +120,7 @@ export const placeTypeLabel = (placeType: string | undefined): string =>
 /* ────────────────────────────── Places ────────────────────────────── */
 
 /** "09:00" → "9AM", "17:30" → "5:30PM". */
-const formatClock = (time: string): string => {
+export const formatClock = (time: string): string => {
   const [h, m] = time.split(":").map(Number);
   if (Number.isNaN(h)) return time;
   const period = h >= 12 ? "PM" : "AM";

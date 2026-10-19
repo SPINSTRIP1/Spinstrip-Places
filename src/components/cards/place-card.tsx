@@ -22,18 +22,18 @@ interface PlaceCardProps {
  * at the door: what kind of place, where, is it open, and what does entry
  * cost.
  *
- * Most merchants only upload a logo, not photography, so the card is built
- * as a business profile — logo beside the name — and only grows a photo
- * band on top when a cover image actually exists. A logo never has to
- * carry an empty 4:3 media area on its own.
+ * Built as a business profile so every card is the same shape: one square
+ * image beside the name. That's the logo, or the cover photo when there's no
+ * logo — most merchants only upload a logo, so there's no photo band.
  */
 export default function PlaceCard({
   place,
   index = 0,
   onOpen,
 }: PlaceCardProps) {
-  const cover = place.coverImage || place.images?.[0] || null;
   const logo = place.metadata?.logoUrl || null;
+  const cover = place.coverImage || place.images?.[0] || null;
+  const image = logo ?? cover;
   const type = placeTypeLabel(place.placeType);
   const open = getOpenStatus(place.operatingHours);
   const startingPrice = getPlaceStartingPrice(place);
@@ -41,66 +41,23 @@ export default function PlaceCard({
   const area =
     [place.city, place.state].filter(Boolean).join(", ") || place.country;
 
-  const openBadge = open && (
-    <span
-      className={cn(
-        "flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold",
-        cover
-          ? open.isOpen
-            ? "bg-emerald-500/95 text-white backdrop-blur-md"
-            : "bg-black/55 text-white backdrop-blur-md"
-          : open.isOpen
-            ? "bg-emerald-50 text-emerald-700"
-            : "bg-background text-secondary-text",
-      )}
-    >
-      {open.isOpen && <span className="live-dot" />}
-      {open.short}
-    </span>
-  );
-
   return (
     <article
       className="listing-card card-in group flex cursor-pointer flex-col overflow-hidden rounded-3xl border border-background-light bg-white/90 backdrop-blur-md"
       style={{ "--i": index } as React.CSSProperties}
       onClick={() => onOpen(place)}
     >
-      {/* Photo band — only when the merchant has one */}
-      {cover && (
-        <div className="relative aspect-[16/9] overflow-hidden">
-          <MediaImage
-            src={cover}
-            alt={place.name}
-            className="h-full w-full"
-            imgClassName="card-img"
-          />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-          <span className="sec-text absolute left-3 top-3 rounded-full border border-white/60 bg-white/85 px-2.5 py-1 text-[11px] font-bold backdrop-blur-md">
-            {type}
-          </span>
-          <div className="absolute right-3 top-3">{openBadge}</div>
-        </div>
-      )}
-
       <div className="flex flex-1 flex-col p-4 sm:p-5">
         {/* Identity row */}
-        <div
-          className={cn("flex items-start gap-3", cover && "-mt-10 sm:-mt-11")}
-        >
-          <span
-            className={cn(
-              "grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl ",
-              cover
-                ? "border-white shadow-[0_10px_24px_-10px_rgba(15,15,15,0.45)]"
-                : "sec-border shadow-[0_10px_24px_-14px_var(--sec-glow)]",
-            )}
-          >
-            {logo ? (
+        <div className="flex items-start gap-3">
+          <span className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl">
+            {image ? (
               <MediaImage
-                src={logo}
+                src={image}
                 alt=""
                 className="h-full w-full"
-                imgClassName="object-contain"
+                // Logos keep their whole shape; a cover photo fills the tile.
+                imgClassName={logo ? "object-contain" : "object-cover"}
               />
             ) : (
               <span className="sec-soft sec-text grid h-full w-full place-items-center">
@@ -109,15 +66,25 @@ export default function PlaceCard({
             )}
           </span>
 
-          <div className={cn("min-w-0 flex-1", cover && "pt-11 sm:pt-12")}>
-            {!cover && (
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="sec-text text-[11px] font-bold uppercase tracking-wider">
-                  {type}
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <span className="sec-text truncate text-[11px] font-bold uppercase tracking-wider">
+                {type}
+              </span>
+              {open && (
+                <span
+                  className={cn(
+                    "flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                    open.isOpen
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-background text-secondary-text",
+                  )}
+                >
+                  {open.isOpen && <span className="live-dot" />}
+                  {open.short}
                 </span>
-                {openBadge}
-              </div>
-            )}
+              )}
+            </div>
             <h3 className="font-display line-clamp-1 text-base font-bold leading-snug text-primary-text sm:text-lg">
               {place.name}
             </h3>

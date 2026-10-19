@@ -106,7 +106,8 @@ function usePlaceDirectory(enabled: boolean) {
 }
 
 /**
- * Every restaurant with at least one public dish, newest kitchens first.
+ * Every restaurant with at least one public dish and a published place,
+ * newest kitchens first.
  * `search` matches dish names/descriptions server-side, so a search for
  * "jollof" returns only the kitchens that serve it.
  */
@@ -133,16 +134,18 @@ export function useRestaurants(
         merchantIds.push(item.userId);
       }
     }
-    return merchantIds.map((id) =>
-      buildRestaurantProfile(id, menu.menuItems, directory.places),
-    );
+    // Only merchants with a published place are listed: without one there's
+    // no real name, address or hours, just a generated "Kitchen XXXX".
+    return merchantIds
+      .map((id) => buildRestaurantProfile(id, menu.menuItems, directory.places))
+      .filter((restaurant) => restaurant.place !== null);
   }, [menu.menuItems, directory.places]);
 
   return {
     restaurants,
-    // The list is usable as soon as the dishes arrive; place details fill in
-    // when the directory lands, without blocking the section.
-    isLoading: menu.isLoading,
+    // Wait for the places too: until they land every kitchen looks place-less
+    // and the filter above would briefly empty the list.
+    isLoading: menu.isLoading || directory.isLoading,
     isFetching: menu.isFetching || directory.isFetching,
     refetch: menu.refetch,
   };
@@ -157,18 +160,21 @@ export function useRestaurant(merchantId: string | null | undefined) {
   const directory = usePlaceDirectory(!!merchantId);
 
   const restaurant = useMemo(() => {
-    if (!merchantId || menu.isLoading) return null;
+    if (!merchantId || menu.isLoading || directory.isLoading) return null;
     const profile = buildRestaurantProfile(
       merchantId,
       menu.menuItems,
       directory.places,
     );
+    // A merchant with no published place comes back with `place: null`;
+    // storefronts treat that as not found, but order pages still need its dishes.
     return profile.dishCount > 0 ? profile : null;
-  }, [merchantId, menu.menuItems, menu.isLoading, directory.places]);
+  }, [merchantId, menu.menuItems, menu.isLoading, directory.isLoading, directory.places]);
 
   return {
     restaurant,
-    isLoading: menu.isLoading,
+    // Wait for the places too, or a real restaurant would flash "not found".
+    isLoading: menu.isLoading || directory.isLoading,
     isPlaceLoading: directory.isLoading,
     error: menu.error,
     refetch: menu.refetch,

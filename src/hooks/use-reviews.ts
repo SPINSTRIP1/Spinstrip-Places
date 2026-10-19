@@ -4,6 +4,7 @@ import { EVENTS_SERVER_URL, MENU_API_URL, PLACES_API_URL } from "@/constants";
 import apiClient from "@/lib/api/axios-client";
 import { handleAxiosError } from "@/lib/api/handle-axios-error";
 import type { ReviewTarget } from "@/lib/reviews";
+import { SAMPLE_REVIEWS } from "@/data/sample-reviews";
 
 export interface ReviewInput {
   stars: number;
@@ -31,6 +32,16 @@ export function useSubmitReview(target: ReviewTarget) {
       }
     },
   });
+}
+
+/**
+ * Public reviews for a restaurant. The menu service doesn't list reviews
+ * publicly yet, so this returns placeholder data flagged with `isSample`.
+ * When the endpoint opens, fetch it here with useQuery and drop the sample.
+ */
+export function useMenuReviews(merchantUserId: string) {
+  void merchantUserId;
+  return { reviews: SAMPLE_REVIEWS, isLoading: false, isSample: true };
 }
 
 const NOT_ELIGIBLE: Record<ReviewTarget["kind"], string> = {

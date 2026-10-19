@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import QRCode from "qrcode";
 import toast from "react-hot-toast";
 import {
-  ArrowLeft,
   CreditCard,
   Gamepad2,
   Hand,
@@ -15,10 +14,13 @@ import {
   Sparkles,
   Trophy,
   Users,
+  UtensilsCrossed,
 } from "lucide-react";
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
 import MediaImage from "@/components/media-image";
+import MenuBrowser from "@/components/restaurant/MenuBrowser";
+import MenuOrderLayer from "@/components/restaurant/MenuOrderLayer";
 import ReviewComposer from "@/components/review-composer";
 import { orderStatusMeta } from "@/components/smart-menu/OrdersList";
 import WaiterPanel, {
@@ -27,7 +29,9 @@ import WaiterPanel, {
 } from "@/components/smart-menu/WaiterPanel";
 import { Button } from "@/components/ui/button";
 import { usePublicOrder, type PublicMenuOrder } from "@/hooks/use-menu";
+import { useMenuOrdering } from "@/hooks/use-menu-ordering";
 import { useRestaurant } from "@/hooks/use-restaurants";
+import { sectionThemeVars } from "@/data/listings";
 import {
   isTipReference,
   useOrderSocket,
@@ -48,9 +52,11 @@ import {
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/utils";
 
+// Bottom bar order: Menu first, which puts My Order in the middle.
 const TABS = [
-  { id: "order", label: "My Order", icon: ReceiptText },
+  { id: "menu", label: "Menu", icon: UtensilsCrossed },
   { id: "waiter", label: "My Waiter", icon: Hand },
+  { id: "order", label: "My Order", icon: ReceiptText },
   { id: "group", label: "Group", icon: Users },
   { id: "game", label: "Game", icon: Gamepad2 },
 ] as const;
@@ -247,6 +253,15 @@ export default function OrderExperience({ orderId }: Props) {
     "Restaurant";
 
   const tableNumber = order?.tableNumber || snapshot?.tableNumber || null;
+  // The Menu tab orders from the same cart as the restaurant page.
+  const menuItems = useMemo(() => restaurant?.items ?? [], [restaurant]);
+  const ordering = useMenuOrdering(merchantId, menuItems);
+
+  // Bottom-bar taps start each tab at the top; the menu is much longer than the rest.
+  const selectTab = (next: TabId) => {
+    if (next !== tab) window.scrollTo({ top: 0 });
+    setTab(next);
+  };
 
   const lines = useMemo<Line[]>(() => {
     const photo = (menuItemId: string) =>
@@ -355,50 +370,53 @@ export default function OrderExperience({ orderId }: Props) {
   }
 
   return (
-    <div className="section-swap mx-auto min-h-dvh max-w-md pb-12">
+    <div
+      className="section-swap mx-auto min-h-dvh max-w-md pb-[calc(6rem_+_env(safe-area-inset-bottom))]"
+      style={sectionThemeVars("menu")}
+    >
       {/* Header */}
       <header className="px-5 pt-5">
-        <div className="mb-3 flex items-center justify-between">
-          <Link
-            href={menuHref}
-            className="inline-flex items-center gap-1 text-sm text-secondary-text transition-colors hover:text-primary-text"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to menu
-          </Link>
-          <Link
-            href="/orders"
-            className="inline-flex items-center gap-1 text-sm font-medium text-primary"
-          >
-            <ReceiptText className="h-4 w-4" /> My orders
-          </Link>
-        </div>
         <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-primary">
           {restaurantName}
         </p>
-        <h1 className="font-display mt-1 text-3xl font-bold tracking-tight text-primary-text">
-          Order {code}
-        </h1>
-        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-secondary-text">
-          <span>
-            {tableNumber ? `Table ${tableNumber} · ` : ""}
-            <span className="font-semibold text-primary-text">
-              {formatPrice(total)}
-            </span>
-          </span>
-          {statusMeta && (
-            <span
-              className={cn(
-                "rounded-full px-2 py-0.5 text-[11px] font-bold",
-                statusMeta.className,
+        {tab === "menu" ? (
+          <>
+            <h1 className="font-display mt-1 text-3xl font-bold tracking-tight text-primary-text">
+              Menu
+            </h1>
+            <p className="mt-0.5 text-sm text-secondary-text">
+              Anything you order here goes in as a new order
+              {tableNumber ? ` for Table ${tableNumber}` : ""}.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="font-display mt-1 text-3xl font-bold tracking-tight text-primary-text">
+              Order {code}
+            </h1>
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-secondary-text">
+              <span>
+                {tableNumber ? `Table ${tableNumber} · ` : ""}
+                <span className="font-semibold text-primary-text">
+                  {formatPrice(total)}
+                </span>
+              </span>
+              {statusMeta && (
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[11px] font-bold",
+                    statusMeta.className,
+                  )}
+                >
+                  {statusMeta.label}
+                </span>
               )}
-            >
-              {statusMeta.label}
-            </span>
-          )}
-        </p>
+            </p>
+          </>
+        )}
       </header>
 
-      {awaitingPayment && (
+      {awaitingPayment && tab !== "menu" && (
         <div className="mx-5 mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
           <CreditCard className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
@@ -408,8 +426,11 @@ export default function OrderExperience({ orderId }: Props) {
         </div>
       )}
 
-      {/* Receipt QR */}
-      <div className="mx-5 mt-4 rounded-3xl border border-background-light bg-white/90 p-5 text-center backdrop-blur-md">
+      {/* Receipt QR: part of My Order, so the other tabs get the screen space */}
+      <div
+        hidden={tab !== "order"}
+        className="mx-5 mt-4 rounded-3xl border border-background-light bg-white/90 p-5 text-center backdrop-blur-md"
+      >
         <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-secondary-text">
           Receipt QR — show to your waiter
         </p>
@@ -430,7 +451,7 @@ export default function OrderExperience({ orderId }: Props) {
       </div>
 
       {/* Status timeline */}
-      <div className="mx-5 mt-5 flex items-center">
+      <div className={cn("mx-5 mt-5 flex items-center", tab === "menu" && "hidden")}>
         {STEPS.map((step, i) => (
           <div key={step} className="flex flex-1 items-center">
             <div className="flex flex-col items-center">
@@ -465,31 +486,75 @@ export default function OrderExperience({ orderId }: Props) {
         ))}
       </div>
 
-      {/* Tabs */}
-      <div
-        role="tablist"
-        className="mx-5 mt-5 grid grid-cols-4 gap-1 rounded-full border border-background-light bg-white/90 p-1 backdrop-blur-md"
+      {/* Tab bar: fixed to the bottom like a native app, kept to the page's column width */}
+      <nav
+        aria-label="Order sections"
+        className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t border-background-light bg-white/90 backdrop-blur-xl"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={tab === t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              "flex flex-col items-center gap-0.5 rounded-full py-2 text-[10px] font-semibold transition-all",
-              tab === t.id
-                ? "bg-primary text-white shadow-[0_6px_20px_-6px_rgba(105,50,226,0.7)]"
-                : "text-secondary-text",
-            )}
-          >
-            <t.icon className="h-4 w-4" />
-            {t.label}
-          </button>
-        ))}
-      </div>
+        <div className="flex h-16">
+          {TABS.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                aria-current={active ? "page" : undefined}
+                onClick={() => selectTab(t.id)}
+                className={cn(
+                  "btn-press flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold transition-colors",
+                  active ? "text-primary" : "text-secondary-text",
+                )}
+              >
+                <span
+                  className={cn(
+                    "relative grid h-8 w-14 place-items-center rounded-full transition-colors duration-300",
+                    active && "bg-primary/10",
+                  )}
+                >
+                  <t.icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
+                  {t.id === "menu" && ordering.cartCount > 0 && (
+                    <span
+                      key={ordering.cartCount}
+                      className="bump absolute -top-1 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-white"
+                    >
+                      {ordering.cartCount}
+                    </span>
+                  )}
+                </span>
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
 
-      <div className="px-5 pt-4">
+      {/* Menu tab: the restaurant menu, ordering into a new order */}
+      <div hidden={tab !== "menu"}>
+        {restaurant?.place ? (
+          <MenuBrowser restaurant={restaurant} ordering={ordering} layout="list" />
+        ) : (
+          <div className="px-5 pt-6">
+            <EmptyState
+              variant="inline"
+              icon={<UtensilsCrossed size={26} />}
+              title="Menu unavailable"
+              description="This restaurant's menu isn't available on SpinStrip right now."
+            />
+          </div>
+        )}
+      </div>
+      {restaurant?.place && (
+        <MenuOrderLayer
+          restaurant={restaurant}
+          ordering={ordering}
+          tableNumber={tableNumber}
+          showBar={tab === "menu"}
+          barClassName="inset-x-0 mx-auto max-w-md px-3 bottom-[calc(4.75rem_+_env(safe-area-inset-bottom))]"
+        />
+      )}
+
+      <div hidden={tab === "menu"} className="px-5 pt-5">
         {tab === "order" && (
           <div className="space-y-2">
             {lines.map((line) => (
