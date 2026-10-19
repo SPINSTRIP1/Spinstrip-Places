@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronRight, Lock, ReceiptText, Store } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronRight,
+  Lock,
+  ReceiptText,
+  Store,
+} from "lucide-react";
 import EmptyState from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,12 +16,16 @@ import { usePublicOrders, type PublicMenuOrder } from "@/hooks/use-menu";
 import { getKnownEmails, getOrderSnapshot } from "@/lib/smart-menu";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/utils";
+import { useRouter } from "next/navigation";
 
 /** Status pill copy and colour for the storefront's order states. */
 export function orderStatusMeta(status: string) {
   const s = status.toUpperCase();
   if (s === "PENDING")
-    return { label: "Awaiting payment", className: "bg-amber-50 text-amber-700" };
+    return {
+      label: "Awaiting payment",
+      className: "bg-amber-50 text-amber-700",
+    };
   if (s === "CONFIRMED")
     return { label: "Placed", className: "bg-primary-accent text-primary" };
   if (/CANCEL|FAIL|REFUND/.test(s))
@@ -26,7 +36,10 @@ export function orderStatusMeta(status: string) {
     return { label: "In the kitchen", className: "bg-sky-50 text-sky-700" };
   if (/ACCEPT|CLAIM/.test(s))
     return { label: "Claimed", className: "bg-primary-accent text-primary" };
-  return { label: s.charAt(0) + s.slice(1).toLowerCase(), className: "bg-background text-secondary-text" };
+  return {
+    label: s.charAt(0) + s.slice(1).toLowerCase(),
+    className: "bg-background text-secondary-text",
+  };
 }
 
 function formatWhen(iso: string) {
@@ -45,7 +58,8 @@ function OrderRow({ order, index }: { order: PublicMenuOrder; index: number }) {
   // The API doesn't carry the restaurant name or table yet; the snapshot
   // saved on this phone at checkout usually does.
   const snapshot = getOrderSnapshot(order.id);
-  const restaurantName = order.restaurantName || snapshot?.restaurantName || "Restaurant";
+  const restaurantName =
+    order.restaurantName || snapshot?.restaurantName || "Restaurant";
   const summary = order.items
     .map((item) => `${item.quantity}× ${item.name}`)
     .join(", ");
@@ -64,13 +78,20 @@ function OrderRow({ order, index }: { order: PublicMenuOrder; index: number }) {
           <p className="font-display truncate text-base font-bold text-primary-text">
             {restaurantName}
           </p>
-          <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold", status.className)}>
+          <span
+            className={cn(
+              "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
+              status.className,
+            )}
+          >
             {status.label}
           </span>
         </div>
         <p className="mt-0.5 truncate text-xs text-secondary-text">{summary}</p>
         <p className="mt-1 text-xs text-secondary-text">
-          <span className="font-semibold tabular-nums text-primary">{order.displayCode}</span>
+          <span className="font-semibold tabular-nums text-primary">
+            {order.displayCode}
+          </span>
           {" · "}
           {formatWhen(order.createdAt)}
           {snapshot?.tableNumber && ` · Table ${snapshot.tableNumber}`}
@@ -104,15 +125,15 @@ export default function OrdersList() {
   }, []);
 
   const { orders, isLoading } = usePublicOrders(emails ?? []);
-
+  const router = useRouter();
   return (
     <div className="section-swap mx-auto min-h-dvh max-w-2xl px-4 pb-16 pt-24 sm:px-6">
-      <Link
-        href="/"
+      <button
+        onClick={() => router.back()}
         className="mb-4 inline-flex items-center gap-1 text-sm text-secondary-text transition-colors hover:text-primary-text"
       >
-        <ArrowLeft className="h-4 w-4" /> Back to restaurants
-      </Link>
+        <ArrowLeft className="h-4 w-4" /> Back
+      </button>
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="font-display flex items-center gap-2.5 text-3xl font-bold tracking-tight text-primary-text">
@@ -153,11 +174,11 @@ export default function OrdersList() {
             icon={<Lock size={26} />}
             title="No orders on this phone yet"
             description="Your order history unlocks after your first order here. Scan a table code or pick a restaurant to get started."
-            action={
-              <Button asChild size="lg">
-                <Link href="/">Browse restaurants</Link>
-              </Button>
-            }
+            // action={
+            //   <Button asChild size="lg">
+            //     <Link href="/">Browse restaurants</Link>
+            //   </Button>
+            // }
           />
         ) : orders.length === 0 ? (
           <EmptyState
@@ -181,8 +202,9 @@ export default function OrdersList() {
 
       {emails && emails.length > 0 && (
         <p className="mt-6 text-center text-xs text-secondary-text">
-          Showing orders for {emails.join(", ")} — the {emails.length === 1 ? "email" : "emails"} used at
-          checkout on this phone.
+          Showing orders for {emails.join(", ")} — the{" "}
+          {emails.length === 1 ? "email" : "emails"} used at checkout on this
+          phone.
         </p>
       )}
     </div>

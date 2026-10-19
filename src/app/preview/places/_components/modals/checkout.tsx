@@ -21,7 +21,8 @@ import SideModal from "@/components/side-modal";
 import SectionHeader from "@/components/section-header";
 import EmptyState from "@/components/empty-state";
 import ContactFields from "@/components/checkout/contact-fields";
-import { EMPTY_CONTACT, contactSchema, normalisePhone, splitFullName, type ContactFormData } from "@/lib/contact";
+import { EMPTY_CONTACT, contactSchema, normalisePhone, splitFullName, type ContactFormData, saveContact } from "@/lib/contact";
+import { useSavedContact } from "@/hooks/use-saved-contact";
 import { Calendar } from "@/components/ui/calendar";
 import CheckoutSteps from "@/components/checkout/checkout-steps";
 import CheckoutActions from "@/components/checkout/checkout-actions";
@@ -164,6 +165,8 @@ export default function CheckOutModal({
     mode: "onChange",
     defaultValues: EMPTY_CONTACT,
   });
+  // Returning customers: fill in the details they used last time.
+  useSavedContact(form, isOpen);
 
   const handleReset = useCallback(() => {
     form.reset();
@@ -176,6 +179,7 @@ export default function CheckOutModal({
   }, [form]);
 
   const onSubmit = form.handleSubmit(async (values) => {
+    saveContact(values);
     if (!selectedFacility || !dateRange?.from || !dateRange?.to) {
       toast.error("Please select a facility and your stay dates");
       return;

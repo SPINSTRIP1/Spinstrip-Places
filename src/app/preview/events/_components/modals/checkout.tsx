@@ -18,7 +18,8 @@ import SideModal from "@/components/side-modal";
 import SectionHeader from "@/components/section-header";
 import EmptyState from "@/components/empty-state";
 import ContactFields from "@/components/checkout/contact-fields";
-import { EMPTY_CONTACT, contactSchema, splitFullName, type ContactFormData } from "@/lib/contact";
+import { EMPTY_CONTACT, contactSchema, splitFullName, type ContactFormData, saveContact } from "@/lib/contact";
+import { useSavedContact } from "@/hooks/use-saved-contact";
 import CheckoutSteps from "@/components/checkout/checkout-steps";
 import CheckoutActions from "@/components/checkout/checkout-actions";
 import OptionCard from "@/components/checkout/option-card";
@@ -152,6 +153,8 @@ export default function CheckOutModal({
     mode: "onChange",
     defaultValues: EMPTY_CONTACT,
   });
+  // Returning customers: fill in the details they used last time.
+  useSavedContact(form, isOpen);
 
   const handleReset = useCallback(() => {
     form.reset();
@@ -162,6 +165,7 @@ export default function CheckOutModal({
   }, [form]);
 
   const onSubmit = form.handleSubmit(async (values) => {
+    saveContact(values);
     if (selectedTickets.length === 0) {
       toast.error("Please select at least one ticket");
       return;
