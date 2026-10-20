@@ -386,7 +386,7 @@ function PlacesPageContent() {
                 <div className="mt-3 h-[200px] overflow-hidden rounded-2xl border border-background-light">
                   <iframe
                     title={`Map showing ${place.address}`}
-                    src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(place.address)}`}
+                    src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBYFr5ErRkavxzPNczWbxuAkxhkOMHdrNc&q=${encodeURIComponent(place.address)}`}
                     width="100%"
                     height="100%"
                     style={{ border: 0 }}
