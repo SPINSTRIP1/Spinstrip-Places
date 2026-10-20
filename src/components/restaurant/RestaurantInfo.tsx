@@ -21,7 +21,11 @@ const card =
  * merchant's published place, so a kitchen without one gets a short note
  * instead of a page of "Not provided".
  */
-export default function RestaurantInfo({ restaurant }: { restaurant: RestaurantProfile }) {
+export default function RestaurantInfo({
+  restaurant,
+}: {
+  restaurant: RestaurantProfile;
+}) {
   const place = restaurant.place;
 
   if (!place) {
@@ -35,7 +39,9 @@ export default function RestaurantInfo({ restaurant }: { restaurant: RestaurantP
   }
 
   const schedule = place.operatingHours?.schedule ?? [];
-  const today = new Date().toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
+  const today = new Date()
+    .toLocaleDateString("en-US", { weekday: "long" })
+    .toLowerCase();
   const mapsUrl = place.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address)}`
     : undefined;
@@ -55,7 +61,9 @@ export default function RestaurantInfo({ restaurant }: { restaurant: RestaurantP
                   key={entry.day}
                   className={cn(
                     "flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 py-2.5 text-sm",
-                    isToday ? "font-bold text-primary-text" : "text-secondary-text",
+                    isToday
+                      ? "font-bold text-primary-text"
+                      : "text-secondary-text",
                   )}
                 >
                   <span className="flex items-center gap-2">
@@ -86,12 +94,19 @@ export default function RestaurantInfo({ restaurant }: { restaurant: RestaurantP
         <h2 className="font-display mb-2 text-lg font-bold text-primary-text">
           Location &amp; contact
         </h2>
-        <InfoRow icon={Location01Icon} label="Address" value={place.address} href={mapsUrl} />
+        <InfoRow
+          icon={Location01Icon}
+          label="Address"
+          value={place.address}
+          href={mapsUrl}
+        />
         <InfoRow
           icon={Call02Icon}
           label="Call"
           value={place.phoneNumbers?.join(", ")}
-          href={place.phoneNumbers?.[0] ? `tel:${place.phoneNumbers[0]}` : undefined}
+          href={
+            place.phoneNumbers?.[0] ? `tel:${place.phoneNumbers[0]}` : undefined
+          }
         />
         <InfoRow
           icon={Mail01Icon}
@@ -109,7 +124,7 @@ export default function RestaurantInfo({ restaurant }: { restaurant: RestaurantP
           <div className="mt-3 h-[200px] overflow-hidden rounded-2xl border border-background-light">
             <iframe
               title={`Map showing ${place.address}`}
-              src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(place.address)}`}
+              src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBYFr5ErRkavxzPNczWbxuAkxhkOMHdrNc&q=${encodeURIComponent(place.address)}`}
               width="100%"
               height="100%"
               style={{ border: 0 }}
