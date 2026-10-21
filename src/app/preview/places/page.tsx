@@ -32,6 +32,7 @@ import Loader from "@/components/loader";
 import BackLink from "@/components/back-link";
 import { Button } from "@/components/ui/button";
 import ReviewComposer from "@/components/review-composer";
+import ReviewList from "@/components/review-list";
 import CheckOutModal from "./_components/modals/checkout";
 import { PublicFacility, usePublicPlace } from "@/hooks/use-places";
 import { usePublicMenu } from "@/hooks/use-menu";
@@ -306,6 +307,7 @@ function PlacesPageContent() {
             {place.id && (
               <section className="space-y-4">
                 <SectionHeader title="Reviews" />
+                <ReviewList target={{ kind: "place", id: place.id }} />
                 <ReviewComposer
                   target={{ kind: "place", id: place.id }}
                   title="Review this place"

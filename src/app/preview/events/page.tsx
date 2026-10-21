@@ -28,6 +28,7 @@ import Loader from "@/components/loader";
 import BackLink from "@/components/back-link";
 import { Button } from "@/components/ui/button";
 import ReviewComposer from "@/components/review-composer";
+import ReviewList from "@/components/review-list";
 import CheckOutModal from "./_components/modals/checkout";
 import { usePublicEvent } from "@/hooks/use-events";
 import { useMerchantPreview } from "@/lib/merchant-preview";
@@ -256,11 +257,14 @@ function EventsPageContent() {
         <ContainerWrapper className="space-y-4">
           <SectionHeader title="Reviews" />
           {event.id && (
-            <ReviewComposer
-              target={{ kind: "event", id: event.id }}
-              title="Review this event"
-              description="Went to this event? Rate it and tell others what it was like."
-            />
+            <>
+              <ReviewList target={{ kind: "event", id: event.id }} />
+              <ReviewComposer
+                target={{ kind: "event", id: event.id }}
+                title="Review this event"
+                description="Went to this event? Rate it and tell others what it was like."
+              />
+            </>
           )}
         </ContainerWrapper>
 

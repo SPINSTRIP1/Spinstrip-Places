@@ -1,8 +1,8 @@
 /**
  * Guest reviews. Each service decides who may review — a completed visit
  * (places), a completed ticket purchase (events) or a confirmed order (menu)
- * — by matching the email on the review to the one used at checkout. There is
- * no public list of reviews yet, so the storefront only collects them.
+ * — by matching the email on the review to the one used at checkout. Anyone can
+ * read them, signed in or not, through each service's public list (`usePublicReviews`).
  */
 
 export type ReviewTarget =
