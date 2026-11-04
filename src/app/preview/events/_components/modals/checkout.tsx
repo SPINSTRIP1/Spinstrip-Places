@@ -54,7 +54,7 @@ const registerSchema = contactSchema;
 
 type RegisterFormData = ContactFormData;
 
-type EventPaymentProvider = "PAYSTACK" | "PAYONUS";
+type EventPaymentProvider = "PAYSTACK" | "LEDGER_BLOCK";
 
 const PAYMENT_OPTIONS = [
   {
@@ -63,7 +63,7 @@ const PAYMENT_OPTIONS = [
     hint: "Card, bank transfer or USSD",
   },
   {
-    value: "PAYONUS",
+    value: "LEDGER_BLOCK",
     label: "Fuspay",
     hint: "Card, bank transfer or USSD",
   },

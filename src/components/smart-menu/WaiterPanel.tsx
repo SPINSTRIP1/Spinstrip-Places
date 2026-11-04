@@ -382,7 +382,7 @@ function TipCard({ orderId, email }: { orderId: string; email: string }) {
   const [custom, setCustom] = useState("");
   const [method, setMethod] = useState<TipPaymentMethod>("PAYSTACK");
   const tip = useTipWaiter(orderId, email);
-  const value = custom ? Math.round(Number(custom)) : amount;
+  const value = custom ? Number(custom) : amount;
   const valid = Number.isFinite(value) && value >= 1;
 
   const start = () => {

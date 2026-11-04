@@ -88,14 +88,17 @@ const GAMES = [
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Timeline position. Live statuses are only PENDING and CONFIRMED today, so
- * "Waiter" comes from the assignment fields and "Served" lights up only if
- * the backend starts sending a served-style status.
+ * Timeline position. Paying confirms the order, a waiter accepting it moves it
+ * to PROCESSING, and the waiter's "Served" button (POST
+ * /menu/waiter/orders/{id}/complete) sets COMPLETED. COMPLETED only means
+ * served once a waiter has picked the order up, so a payment that lands
+ * straight on COMPLETED still shows as "Paid".
  */
 function stepForOrder(order: PublicMenuOrder | null): number {
   if (!order) return 0;
   const s = order.status?.toUpperCase() ?? "";
   if (/SERVED|DELIVERED|FULFILLED/.test(s)) return 3;
+  if (s === "COMPLETED" && order.waiterUserId) return 3;
   if (s === "PENDING") return 0;
   if (waiterStateOf(order) === "assigned") return 2;
   return 1;

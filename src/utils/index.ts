@@ -26,15 +26,37 @@ export const decrypt = (encrypted: string): string => {
   }
 };
 
-// Format amount to Nigerian Naira
-export const formatAmount = (amount: number | string): string => {
-  const numericAmount =
-    typeof amount === "string" ? parseFloat(amount) : amount;
-  return `₦${numericAmount.toLocaleString("en-NG", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+/**
+ * Money is never rounded: extra decimals are cut off after `MONEY_DECIMALS` places, and
+ * whole naira always show in full. ₦10,999.99999 shows as ₦10,999.9999, never ₦11,000.
+ */
+export const MONEY_DECIMALS = 4;
+
+/** `value` as a plain decimal string cut (not rounded) to `places` decimals: 12.34567 → "12.3456". */
+export const truncateDecimals = (value: number | string, places = MONEY_DECIMALS): string => {
+  const n = typeof value === "string" ? parseFloat(value) : value;
+  if (!Number.isFinite(n)) return "0";
+  // String(n) is the shortest exact form (1.005 stays "1.005"); fall back for exponent notation.
+  let text = String(Math.abs(n));
+  if (text.includes("e")) text = Math.abs(n).toFixed(20);
+  const [whole, fraction = ""] = text.split(".");
+  const cut = fraction.slice(0, places).replace(/0+$/, "");
+  const sign = n < 0 && (/[1-9]/.test(whole) || /[1-9]/.test(cut)) ? "-" : "";
+  return `${sign}${whole}${cut ? `.${cut}` : ""}`;
 };
+
+/** `₦` + grouped whole naira + up to 4 truncated decimals, padded to `minDecimals`. */
+const formatMoney = (amount: number | string, minDecimals: number): string => {
+  const [signedWhole, fraction = ""] = truncateDecimals(amount).split(".");
+  const negative = signedWhole.startsWith("-");
+  const whole = negative ? signedWhole.slice(1) : signedWhole;
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const decimals = fraction.padEnd(minDecimals, "0");
+  return `${negative ? "-" : ""}₦${grouped}${decimals ? `.${decimals}` : ""}`;
+};
+
+// Format amount to Nigerian Naira, always showing 2 decimals: `₦12,500.00`, `₦12.3456`.
+export const formatAmount = (amount: number | string): string => formatMoney(amount, 2);
 
 // Format ISO date string to DD/MM/YYYY
 export const formatISODate = (isoString: string): string => {
@@ -97,19 +119,15 @@ export const formatEnumLabel = (value: string | undefined): string => {
 };
 
 /**
- * Whole-naira price for cards ("₦7,000"). Decimals only appear when the
- * amount actually has them, unlike `formatAmount` which always shows two.
+ * Price for cards: "₦7,000", or "₦7,000.5" when the amount has decimals (cut, never
+ * rounded, after 4 places). Empty for a missing amount.
  */
 export const formatPrice = (
   amount: number | string | null | undefined,
 ): string => {
   const value = typeof amount === "string" ? parseFloat(amount) : amount;
   if (value === null || value === undefined || Number.isNaN(value)) return "";
-  const isWhole = Number.isInteger(value);
-  return `₦${value.toLocaleString("en-NG", {
-    minimumFractionDigits: isWhole ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatMoney(value, 0);
 };
 
 /** Display label for a place type enum, using the curated names first. */
