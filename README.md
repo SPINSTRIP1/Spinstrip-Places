@@ -97,7 +97,7 @@ build time**, so:
 | Variable | Required | Used by | Purpose |
 |---|---|---|---|
 | `NEXT_PUBLIC_SITE_URL` | Yes in production | [src/app/layout.tsx](src/app/layout.tsx) | Public origin of the deployment, e.g. `https://places.spinstrip.com`. Set as `metadataBase` so Open Graph and Twitter image URLs are absolute. Falls back to `http://localhost:3000`, which gives broken social previews in production. |
-| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Yes, for maps | [src/app/preview/places/page.tsx](src/app/preview/places/page.tsx), [src/app/preview/events/page.tsx](src/app/preview/events/page.tsx) | Google Maps **Embed API** key for the location iframe on place and event detail pages. If it is missing, the map shows a Google error and the rest of the page still works. |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Yes, for maps | [src/app/preview/places/page.tsx](src/app/preview/places/page.tsx), [src/app/preview/events/page.tsx](src/app/preview/events/page.tsx), [src/components/restaurant/RestaurantInfo.tsx](src/components/restaurant/RestaurantInfo.tsx) | Google Maps **Embed API** key for the location iframe on place, event and restaurant pages. If it is missing, the map shows a Google error and the rest of the page still works. |
 
 The backend URLs are **not** environment variables. They are hard-coded in
 [src/constants/index.ts](src/constants/index.ts) (see below).

@@ -71,12 +71,13 @@ type BookingFormData = ContactFormData;
 const DEFAULT_CHECK_IN_TIME = "14:00";
 const DEFAULT_CHECK_OUT_TIME = "11:00";
 
+// Paystack is switched off for now; every payment goes through Fuspay (LEDGER_BLOCK).
 const PAYMENT_OPTIONS = [
-  {
-    value: "PAYSTACK",
-    label: "Paystack",
-    hint: "Card, bank transfer or USSD",
-  },
+  // {
+  //   value: "PAYSTACK",
+  //   label: "Paystack",
+  //   hint: "Card, bank transfer or USSD",
+  // },
   {
     value: "LEDGER_BLOCK",
     label: "Fuspay",
@@ -117,7 +118,7 @@ export default function CheckOutModal({
   const [checkInTime, setCheckInTime] = useState(DEFAULT_CHECK_IN_TIME);
   const [checkOutTime, setCheckOutTime] = useState(DEFAULT_CHECK_OUT_TIME);
   const [paymentMethod, setPaymentMethod] =
-    useState<PlacePaymentMethod>("PAYSTACK");
+    useState<PlacePaymentMethod>("LEDGER_BLOCK");
   const [consents, setConsents] = useState({ place: false, news: false });
   const [loading, setLoading] = useState(false);
 
@@ -175,7 +176,7 @@ export default function CheckOutModal({
     setCheckInTime(DEFAULT_CHECK_IN_TIME);
     setCheckOutTime(DEFAULT_CHECK_OUT_TIME);
     setConsents({ place: false, news: false });
-    setPaymentMethod("PAYSTACK");
+    setPaymentMethod("LEDGER_BLOCK");
   }, [form]);
 
   const onSubmit = form.handleSubmit(async (values) => {

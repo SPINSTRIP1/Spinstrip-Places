@@ -380,7 +380,7 @@ export const TIP_REFERENCE_KEY = "spinstrip:pending-tip";
 function TipCard({ orderId, email }: { orderId: string; email: string }) {
   const [amount, setAmount] = useState<number>(1000);
   const [custom, setCustom] = useState("");
-  const [method, setMethod] = useState<TipPaymentMethod>("PAYSTACK");
+  const [method, setMethod] = useState<TipPaymentMethod>("LEDGER_BLOCK");
   const tip = useTipWaiter(orderId, email);
   const value = custom ? Number(custom) : amount;
   const valid = Number.isFinite(value) && value >= 1;
@@ -445,7 +445,8 @@ function TipCard({ orderId, email }: { orderId: string; email: string }) {
       <div className="mt-3 grid grid-cols-2 gap-2">
         {(
           [
-            ["PAYSTACK", "Paystack"],
+            // Paystack is switched off for now; tips go through Fuspay (LEDGER_BLOCK).
+            // ["PAYSTACK", "Paystack"],
             ["LEDGER_BLOCK", "Fuspay"],
           ] as const
         ).map(([id, label]) => (

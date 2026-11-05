@@ -89,12 +89,13 @@ const orderSchema = contactSchema;
 
 type OrderFormData = ContactFormData;
 
+// Paystack is switched off for now; every payment goes through Fuspay (LEDGER_BLOCK).
 const PAYMENT_OPTIONS = [
-  {
-    value: "PAYSTACK",
-    label: "Paystack",
-    hint: "Card, bank transfer or USSD",
-  },
+  // {
+  //   value: "PAYSTACK",
+  //   label: "Paystack",
+  //   hint: "Card, bank transfer or USSD",
+  // },
   {
     value: "LEDGER_BLOCK",
     label: "Fuspay",
@@ -130,7 +131,7 @@ export default function CheckOutModal({
 }: CheckOutModalProps) {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [paymentMethod, setPaymentMethod] =
-    useState<MenuPaymentMethod>("PAYSTACK");
+    useState<MenuPaymentMethod>("LEDGER_BLOCK");
   const [loading, setLoading] = useState(false);
 
   // The dish the customer came from first, then the rest of the menu.

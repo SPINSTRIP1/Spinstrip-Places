@@ -56,12 +56,13 @@ type RegisterFormData = ContactFormData;
 
 type EventPaymentProvider = "PAYSTACK" | "LEDGER_BLOCK";
 
+// Paystack is switched off for now; every payment goes through Fuspay (LEDGER_BLOCK).
 const PAYMENT_OPTIONS = [
-  {
-    value: "PAYSTACK",
-    label: "Paystack",
-    hint: "Card, bank transfer or USSD",
-  },
+  // {
+  //   value: "PAYSTACK",
+  //   label: "Paystack",
+  //   hint: "Card, bank transfer or USSD",
+  // },
   {
     value: "LEDGER_BLOCK",
     label: "Fuspay",
@@ -102,7 +103,7 @@ export default function CheckOutModal({
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [selectedTickets, setSelectedTickets] = useState<TicketSelection[]>([]);
   const [paymentMethod, setPaymentMethod] =
-    useState<EventPaymentProvider>("PAYSTACK");
+    useState<EventPaymentProvider>("LEDGER_BLOCK");
   const [notificationPermission, setNotificationPermission] = useState({
     email: false,
     update: false,
@@ -161,7 +162,7 @@ export default function CheckOutModal({
     setCurrentStep(1);
     setSelectedTickets([]);
     setNotificationPermission({ email: false, update: false });
-    setPaymentMethod("PAYSTACK");
+    setPaymentMethod("LEDGER_BLOCK");
   }, [form]);
 
   const onSubmit = form.handleSubmit(async (values) => {
@@ -186,7 +187,8 @@ export default function CheckOutModal({
           })),
           marketingConsentEvents: notificationPermission.email,
           marketingConsentNews: notificationPermission.update,
-          paymentProvider: isFree ? "PAYSTACK" : paymentMethod,
+          // paymentProvider: isFree ? "PAYSTACK" : paymentMethod,
+          paymentProvider: isFree ? "LEDGER_BLOCK" : paymentMethod,
           callbackUrl: `${window.location.origin}/preview/events/success`,
         },
       );
